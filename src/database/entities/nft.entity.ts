@@ -29,7 +29,10 @@ export class NftEntity {
   @Column({ name: 'owner_address', type: 'varchar', length: 64 })
   ownerAddress!: string;
 
-  @Column({ name: 'metadata_uri', type: 'text', nullable: true })
+  @Column({ name: 'metadata_uri_hex', type: 'varchar', length: 2048, nullable: true })
+  metadataUriHex!: string | null;
+
+  @Column({ name: 'metadata_uri', type: 'varchar', length: 2048, nullable: true })
   metadataUri!: string | null;
 
   @Column({ type: 'jsonb', nullable: true })
@@ -38,11 +41,23 @@ export class NftEntity {
   @Column({ type: 'jsonb', nullable: true })
   traits!: Record<string, any> | null;
 
-  @Column({ name: 'image_url', type: 'text', nullable: true })
+  @Column({ name: 'image_url', type: 'varchar', length: 2048, nullable: true })
   imageUrl!: string | null;
 
-  @Column({ name: 'cached_image_url', type: 'text', nullable: true })
-  cachedImageUrl!: string | null;
+  @Column({ name: 'image_s3_url', type: 'varchar', length: 2048, nullable: true })
+  imageS3Url!: string | null;
+
+  @Column({ name: 'metadata_fetched_at', type: 'timestamp', nullable: true })
+  metadataFetchedAt!: Date | null;
+
+  @Column({ name: 'image_fetched_at', type: 'timestamp', nullable: true })
+  imageFetchedAt!: Date | null;
+
+  @Column({ name: 'metadata_fetch_error', type: 'text', nullable: true })
+  metadataFetchError!: string | null;
+
+  @Column({ name: 'image_fetch_error', type: 'text', nullable: true })
+  imageFetchError!: string | null;
 
   @Column({ name: 'last_activity_at', type: 'timestamp', nullable: true })
   lastActivityAt!: Date | null;
