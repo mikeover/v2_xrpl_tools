@@ -28,6 +28,11 @@ export const configurationSchema = Joi.object({
   // XRPL Configuration
   XRPL_WSS_URLS: Joi.string().required(),
   XRPL_NETWORK: Joi.string().valid('mainnet', 'testnet', 'devnet').default('mainnet'),
+  XRPL_RECONNECT_INTERVAL: Joi.number().min(1000).optional(),
+  XRPL_MAX_RECONNECT_ATTEMPTS: Joi.number().min(1).optional(),
+  XRPL_HEALTH_CHECK_INTERVAL: Joi.number().min(5000).optional(),
+  XRPL_CONNECTION_TIMEOUT: Joi.number().min(1000).optional(),
+  XRPL_MAX_CONSECUTIVE_FAILURES: Joi.number().min(1).optional(),
 
   // AWS S3
   AWS_REGION: Joi.string().default('us-east-1'),
@@ -47,7 +52,5 @@ export const configurationSchema = Joi.object({
   SENDGRID_API_KEY: Joi.string().allow('').optional(),
 
   // Logging
-  LOG_LEVEL: Joi.string()
-    .valid('error', 'warn', 'info', 'debug', 'verbose')
-    .default('info'),
+  LOG_LEVEL: Joi.string().valid('error', 'warn', 'info', 'debug', 'verbose').default('info'),
 });

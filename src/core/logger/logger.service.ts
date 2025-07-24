@@ -12,7 +12,7 @@ export class LoggerService implements NestLoggerService {
   ) {
     const appConfig = this.configService.get<AppConfiguration['app']>('app');
     const loggingConfig = this.configService.get<AppConfiguration['logging']>('logging');
-    
+
     this.isDevelopment = appConfig?.isDevelopment ?? false;
     this.logLevel = loggingConfig?.level ?? 'info';
   }

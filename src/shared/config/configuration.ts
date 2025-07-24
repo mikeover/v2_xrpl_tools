@@ -18,8 +18,16 @@ export interface AppConfiguration {
     password?: string | undefined;
   };
   xrpl: {
-    wssUrls: string[];
+    nodes: Array<{
+      url: string;
+      priority?: number | undefined;
+    }>;
     network: string;
+    reconnectInterval?: number | undefined;
+    maxReconnectAttempts?: number | undefined;
+    healthCheckInterval?: number | undefined;
+    connectionTimeout?: number | undefined;
+    maxConsecutiveFailures?: number | undefined;
   };
   aws: {
     region: string;
@@ -45,7 +53,7 @@ export interface AppConfiguration {
 
 export const configuration = (): AppConfiguration => {
   const nodeEnv = process.env['NODE_ENV'] || 'development';
-  
+
   return {
     app: {
       env: nodeEnv,
@@ -66,8 +74,31 @@ export const configuration = (): AppConfiguration => {
       password: process.env['REDIS_PASSWORD'],
     },
     xrpl: {
-      wssUrls: (process.env['XRPL_WSS_URLS'] || '').split(',').filter(Boolean),
+      nodes: process.env['XRPL_WSS_URLS']
+        ? process.env['XRPL_WSS_URLS']
+            .split(',')
+            .filter(Boolean)
+            .map((url, index) => ({
+              url: url.trim(),
+              priority: index + 1,
+            }))
+        : [],
       network: process.env['XRPL_NETWORK'] || 'mainnet',
+      reconnectInterval: process.env['XRPL_RECONNECT_INTERVAL']
+        ? parseInt(process.env['XRPL_RECONNECT_INTERVAL'], 10)
+        : undefined,
+      maxReconnectAttempts: process.env['XRPL_MAX_RECONNECT_ATTEMPTS']
+        ? parseInt(process.env['XRPL_MAX_RECONNECT_ATTEMPTS'], 10)
+        : undefined,
+      healthCheckInterval: process.env['XRPL_HEALTH_CHECK_INTERVAL']
+        ? parseInt(process.env['XRPL_HEALTH_CHECK_INTERVAL'], 10)
+        : undefined,
+      connectionTimeout: process.env['XRPL_CONNECTION_TIMEOUT']
+        ? parseInt(process.env['XRPL_CONNECTION_TIMEOUT'], 10)
+        : undefined,
+      maxConsecutiveFailures: process.env['XRPL_MAX_CONSECUTIVE_FAILURES']
+        ? parseInt(process.env['XRPL_MAX_CONSECUTIVE_FAILURES'], 10)
+        : undefined,
     },
     aws: {
       region: process.env['AWS_REGION'] || 'us-east-1',
