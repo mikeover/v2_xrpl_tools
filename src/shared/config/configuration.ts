@@ -126,8 +126,8 @@ export const configuration = (): AppConfiguration => {
     },
     queue: {
       url: process.env['RABBITMQ_URL'] || 'amqp://rabbitmq:rabbitmq@localhost:5672',
-      prefetchCount: process.env['RABBITMQ_PREFETCH_COUNT'] 
-        ? parseInt(process.env['RABBITMQ_PREFETCH_COUNT'], 10) 
+      prefetchCount: process.env['RABBITMQ_PREFETCH_COUNT']
+        ? parseInt(process.env['RABBITMQ_PREFETCH_COUNT'], 10)
         : undefined,
     },
   };

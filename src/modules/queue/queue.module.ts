@@ -9,14 +9,7 @@ import { CoreModule } from '../../core/core.module';
 @Module({
   imports: [CoreModule],
   controllers: [QueueHealthController],
-  providers: [
-    RabbitMQConnectionService,
-    EventPublisherService,
-    EventConsumerService,
-  ],
-  exports: [
-    EventPublisherService,
-    EventConsumerService,
-  ],
+  providers: [RabbitMQConnectionService, EventPublisherService, EventConsumerService],
+  exports: [EventPublisherService, EventConsumerService],
 })
 export class QueueModule {}

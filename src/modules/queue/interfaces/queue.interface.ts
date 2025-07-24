@@ -94,9 +94,12 @@ export interface TransactionEvent extends BaseEvent {
 }
 
 export interface NFTEvent extends BaseEvent {
-  eventType: EventType.NFT_MINTED | EventType.NFT_BURNED | 
-    EventType.NFT_OFFER_CREATED | EventType.NFT_OFFER_CANCELLED | 
-    EventType.NFT_OFFER_ACCEPTED;
+  eventType:
+    | EventType.NFT_MINTED
+    | EventType.NFT_BURNED
+    | EventType.NFT_OFFER_CREATED
+    | EventType.NFT_OFFER_CANCELLED
+    | EventType.NFT_OFFER_ACCEPTED;
   data: {
     nftokenId: string;
     issuer?: string;

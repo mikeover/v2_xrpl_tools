@@ -13,7 +13,11 @@ declare module 'amqplib' {
     bindQueue(queue: string, source: string, pattern: string): Promise<any>;
     publish(exchange: string, routingKey: string, content: Buffer, options?: any): boolean;
     sendToQueue(queue: string, content: Buffer, options?: any): boolean;
-    consume(queue: string, onMessage: (msg: ConsumeMessage | null) => void, options?: any): Promise<{ consumerTag: string }>;
+    consume(
+      queue: string,
+      onMessage: (msg: ConsumeMessage | null) => void,
+      options?: any,
+    ): Promise<{ consumerTag: string }>;
     ack(message: ConsumeMessage): void;
     reject(message: ConsumeMessage, requeue?: boolean): void;
     cancel(consumerTag: string): Promise<void>;

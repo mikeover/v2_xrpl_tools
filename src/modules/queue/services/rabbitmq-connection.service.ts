@@ -21,7 +21,9 @@ export class RabbitMQConnectionService implements OnModuleInit, OnModuleDestroy 
   ) {
     const queueConfig = this.configService.get('queue', { infer: true });
     this.connectionUrl = queueConfig?.url || 'amqp://rabbitmq:rabbitmq@localhost:5672';
-    this.logger.debug(`RabbitMQ connection URL: ${this.connectionUrl.replace(/\/\/.*@/, '//***@')}`);
+    this.logger.debug(
+      `RabbitMQ connection URL: ${this.connectionUrl.replace(/\/\/.*@/, '//***@')}`,
+    );
   }
 
   async onModuleInit(): Promise<void> {
@@ -29,8 +31,12 @@ export class RabbitMQConnectionService implements OnModuleInit, OnModuleDestroy 
       await this.connect();
       await this.setupExchangesAndQueues();
     } catch (error) {
-      this.logger.warn('RabbitMQ connection failed during initialization - queue functionality disabled');
-      this.logger.debug(`RabbitMQ error: ${error instanceof Error ? error.message : String(error)}`);
+      this.logger.warn(
+        'RabbitMQ connection failed during initialization - queue functionality disabled',
+      );
+      this.logger.debug(
+        `RabbitMQ error: ${error instanceof Error ? error.message : String(error)}`,
+      );
     }
   }
 
@@ -41,36 +47,38 @@ export class RabbitMQConnectionService implements OnModuleInit, OnModuleDestroy 
   async connect(): Promise<void> {
     try {
       this.logger.log('Connecting to RabbitMQ...');
-      
+
       this.connection = await amqplib.connect(this.connectionUrl);
       this.channel = await this.connection.createChannel();
-      
+
       // Set prefetch count for fair dispatch
       await this.channel.prefetch(QUEUE_CONSTANTS.DEFAULT_PREFETCH_COUNT);
-      
+
       // Handle connection events
       this.connection.on('error', (error) => {
         this.logger.error(`RabbitMQ connection error: ${error.message}`);
         this.handleConnectionError();
       });
-      
+
       this.connection.on('close', () => {
         this.logger.warn('RabbitMQ connection closed');
         this.handleConnectionError();
       });
-      
+
       this.channel.on('error', (error) => {
         this.logger.error(`RabbitMQ channel error: ${error.message}`);
       });
-      
+
       this.channel.on('close', () => {
         this.logger.warn('RabbitMQ channel closed');
       });
-      
+
       this.reconnectAttempts = 0;
       this.logger.log('Successfully connected to RabbitMQ');
     } catch (error) {
-      this.logger.error(`Failed to connect to RabbitMQ: ${error instanceof Error ? error.message : String(error)}`);
+      this.logger.error(
+        `Failed to connect to RabbitMQ: ${error instanceof Error ? error.message : String(error)}`,
+      );
       throw new Error(QUEUE_ERRORS.CONNECTION_FAILED);
     }
   }
@@ -81,15 +89,17 @@ export class RabbitMQConnectionService implements OnModuleInit, OnModuleDestroy 
         await this.channel.close();
         this.channel = null;
       }
-      
+
       if (this.connection) {
         await this.connection.close();
         this.connection = null;
       }
-      
+
       this.logger.log('Disconnected from RabbitMQ');
     } catch (error) {
-      this.logger.error(`Error disconnecting from RabbitMQ: ${error instanceof Error ? error.message : String(error)}`);
+      this.logger.error(
+        `Error disconnecting from RabbitMQ: ${error instanceof Error ? error.message : String(error)}`,
+      );
     }
   }
 
@@ -109,9 +119,11 @@ export class RabbitMQConnectionService implements OnModuleInit, OnModuleDestroy 
     try {
       // Create exchanges
       await this.assertExchange(QUEUE_CONSTANTS.EXCHANGES.XRPL, 'topic', { durable: true });
-      await this.assertExchange(QUEUE_CONSTANTS.EXCHANGES.NOTIFICATIONS, 'direct', { durable: true });
+      await this.assertExchange(QUEUE_CONSTANTS.EXCHANGES.NOTIFICATIONS, 'direct', {
+        durable: true,
+      });
       await this.assertExchange(QUEUE_CONSTANTS.EXCHANGES.DEAD_LETTER, 'fanout', { durable: true });
-      
+
       // Create dead letter queue first
       await this.assertQueue(QUEUE_CONSTANTS.QUEUES.DEAD_LETTER, {
         durable: true,
@@ -120,20 +132,20 @@ export class RabbitMQConnectionService implements OnModuleInit, OnModuleDestroy 
           'x-max-length': QUEUE_CONSTANTS.DEAD_LETTER_MAX_LENGTH,
         },
       });
-      
+
       // Bind dead letter queue to dead letter exchange
       await this.channel.bindQueue(
         QUEUE_CONSTANTS.QUEUES.DEAD_LETTER,
         QUEUE_CONSTANTS.EXCHANGES.DEAD_LETTER,
         '',
       );
-      
+
       // Create main queues with dead letter configuration
       const deadLetterArgs = {
         'x-dead-letter-exchange': QUEUE_CONSTANTS.EXCHANGES.DEAD_LETTER,
         'x-message-ttl': QUEUE_CONSTANTS.DEFAULT_MESSAGE_TTL,
       };
-      
+
       // Ledger events queue
       await this.assertQueue(QUEUE_CONSTANTS.QUEUES.LEDGER_EVENTS, {
         durable: true,
@@ -144,7 +156,7 @@ export class RabbitMQConnectionService implements OnModuleInit, OnModuleDestroy 
         QUEUE_CONSTANTS.EXCHANGES.XRPL,
         QUEUE_CONSTANTS.ROUTING_KEYS.LEDGER_CLOSED,
       );
-      
+
       // Transaction events queue
       await this.assertQueue(QUEUE_CONSTANTS.QUEUES.TRANSACTION_EVENTS, {
         durable: true,
@@ -155,7 +167,7 @@ export class RabbitMQConnectionService implements OnModuleInit, OnModuleDestroy 
         QUEUE_CONSTANTS.EXCHANGES.XRPL,
         QUEUE_CONSTANTS.ROUTING_KEYS.TRANSACTION_VALIDATED,
       );
-      
+
       // NFT events queue
       await this.assertQueue(QUEUE_CONSTANTS.QUEUES.NFT_EVENTS, {
         durable: true,
@@ -166,7 +178,7 @@ export class RabbitMQConnectionService implements OnModuleInit, OnModuleDestroy 
         QUEUE_CONSTANTS.EXCHANGES.XRPL,
         QUEUE_CONSTANTS.ROUTING_KEYS.NFT_ACTIVITY,
       );
-      
+
       // Notifications queue
       await this.assertQueue(QUEUE_CONSTANTS.QUEUES.NOTIFICATIONS, {
         durable: true,
@@ -180,20 +192,28 @@ export class RabbitMQConnectionService implements OnModuleInit, OnModuleDestroy 
         QUEUE_CONSTANTS.EXCHANGES.NOTIFICATIONS,
         QUEUE_CONSTANTS.ROUTING_KEYS.NOTIFICATION,
       );
-      
+
       this.logger.log('RabbitMQ exchanges and queues setup completed');
     } catch (error) {
-      this.logger.error(`Failed to setup exchanges and queues: ${error instanceof Error ? error.message : String(error)}`);
+      this.logger.error(
+        `Failed to setup exchanges and queues: ${error instanceof Error ? error.message : String(error)}`,
+      );
       throw error;
     }
   }
 
-  private async assertExchange(name: string, type: string, options: ExchangeOptions): Promise<void> {
+  private async assertExchange(
+    name: string,
+    type: string,
+    options: ExchangeOptions,
+  ): Promise<void> {
     try {
       await this.channel!.assertExchange(name, type, options);
       this.logger.debug(`Exchange '${name}' (${type}) asserted`);
     } catch (error) {
-      this.logger.error(`Failed to assert exchange '${name}': ${error instanceof Error ? error.message : String(error)}`);
+      this.logger.error(
+        `Failed to assert exchange '${name}': ${error instanceof Error ? error.message : String(error)}`,
+      );
       throw new Error(QUEUE_ERRORS.EXCHANGE_ASSERTION_FAILED);
     }
   }
@@ -203,7 +223,9 @@ export class RabbitMQConnectionService implements OnModuleInit, OnModuleDestroy 
       await this.channel!.assertQueue(name, options);
       this.logger.debug(`Queue '${name}' asserted`);
     } catch (error) {
-      this.logger.error(`Failed to assert queue '${name}': ${error instanceof Error ? error.message : String(error)}`);
+      this.logger.error(
+        `Failed to assert queue '${name}': ${error instanceof Error ? error.message : String(error)}`,
+      );
       throw new Error(QUEUE_ERRORS.QUEUE_ASSERTION_FAILED);
     }
   }
@@ -215,14 +237,18 @@ export class RabbitMQConnectionService implements OnModuleInit, OnModuleDestroy 
     }
 
     this.reconnectAttempts++;
-    this.logger.log(`Attempting to reconnect (${this.reconnectAttempts}/${this.maxReconnectAttempts})...`);
-    
+    this.logger.log(
+      `Attempting to reconnect (${this.reconnectAttempts}/${this.maxReconnectAttempts})...`,
+    );
+
     setTimeout(async () => {
       try {
         await this.connect();
         await this.setupExchangesAndQueues();
       } catch (error) {
-        this.logger.error(`Reconnection attempt failed: ${error instanceof Error ? error.message : String(error)}`);
+        this.logger.error(
+          `Reconnection attempt failed: ${error instanceof Error ? error.message : String(error)}`,
+        );
       }
     }, this.reconnectDelay * this.reconnectAttempts);
   }

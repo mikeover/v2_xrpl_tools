@@ -1,4 +1,13 @@
-import { IsString, IsEnum, IsDate, IsOptional, IsObject, ValidateNested, IsNumber, IsBoolean } from 'class-validator';
+import {
+  IsString,
+  IsEnum,
+  IsDate,
+  IsOptional,
+  IsObject,
+  ValidateNested,
+  IsNumber,
+  IsBoolean,
+} from 'class-validator';
 import { Type } from 'class-transformer';
 import { EventType } from '../interfaces/queue.interface';
 
@@ -115,9 +124,12 @@ export class NFTDataDto {
 
 export class NFTEventDto extends BaseEventDto {
   @IsEnum(EventType)
-  declare eventType: EventType.NFT_MINTED | EventType.NFT_BURNED | 
-    EventType.NFT_OFFER_CREATED | EventType.NFT_OFFER_CANCELLED | 
-    EventType.NFT_OFFER_ACCEPTED;
+  declare eventType:
+    | EventType.NFT_MINTED
+    | EventType.NFT_BURNED
+    | EventType.NFT_OFFER_CREATED
+    | EventType.NFT_OFFER_CANCELLED
+    | EventType.NFT_OFFER_ACCEPTED;
 
   @ValidateNested()
   @Type(() => NFTDataDto)

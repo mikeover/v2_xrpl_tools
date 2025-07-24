@@ -18,7 +18,7 @@ export interface ConsumerTag {
 @Injectable()
 export class EventConsumerService implements OnModuleDestroy {
   private consumers: Map<string, ConsumerTag> = new Map();
-  
+
   constructor(
     private readonly logger: LoggerService,
     private readonly connectionService: RabbitMQConnectionService,
@@ -32,33 +32,18 @@ export class EventConsumerService implements OnModuleDestroy {
     handler: MessageHandler,
     options?: ConsumeOptions,
   ): Promise<ConsumerTag> {
-    return this.consume(
-      QUEUE_CONSTANTS.QUEUES.LEDGER_EVENTS,
-      handler,
-      options,
-    );
+    return this.consume(QUEUE_CONSTANTS.QUEUES.LEDGER_EVENTS, handler, options);
   }
 
   async consumeTransactionEvents(
     handler: MessageHandler,
     options?: ConsumeOptions,
   ): Promise<ConsumerTag> {
-    return this.consume(
-      QUEUE_CONSTANTS.QUEUES.TRANSACTION_EVENTS,
-      handler,
-      options,
-    );
+    return this.consume(QUEUE_CONSTANTS.QUEUES.TRANSACTION_EVENTS, handler, options);
   }
 
-  async consumeNFTEvents(
-    handler: MessageHandler,
-    options?: ConsumeOptions,
-  ): Promise<ConsumerTag> {
-    return this.consume(
-      QUEUE_CONSTANTS.QUEUES.NFT_EVENTS,
-      handler,
-      options,
-    );
+  async consumeNFTEvents(handler: MessageHandler, options?: ConsumeOptions): Promise<ConsumerTag> {
+    return this.consume(QUEUE_CONSTANTS.QUEUES.NFT_EVENTS, handler, options);
   }
 
   async consume(
@@ -72,7 +57,7 @@ export class EventConsumerService implements OnModuleDestroy {
         this.logger.warn('RabbitMQ not connected - cannot start consumer');
         throw new Error(QUEUE_ERRORS.CONSUME_FAILED);
       }
-      
+
       const consumerOptions = {
         noAck: options?.noAck ?? false,
         exclusive: options?.exclusive ?? false,
@@ -89,7 +74,7 @@ export class EventConsumerService implements OnModuleDestroy {
 
           try {
             const event = JSON.parse(message.content.toString()) as QueueEvent;
-            
+
             this.logger.debug(
               `Processing event ${event.eventType} (${event.eventId}) from ${queue}`,
             );
@@ -108,7 +93,7 @@ export class EventConsumerService implements OnModuleDestroy {
             // Handle message based on error and retry count
             if (!consumerOptions.noAck) {
               const retryCount = this.getRetryCount(message);
-              
+
               if (retryCount < QUEUE_CONSTANTS.DEFAULT_RETRY_ATTEMPTS) {
                 // Requeue with incremented retry count
                 await this.requeueWithRetry(channel, message, queue, retryCount + 1);
@@ -127,9 +112,9 @@ export class EventConsumerService implements OnModuleDestroy {
 
       const tag: ConsumerTag = { queue, consumerTag };
       this.consumers.set(consumerTag, tag);
-      
+
       this.logger.log(`Started consuming from queue '${queue}' with tag '${consumerTag}'`);
-      
+
       return tag;
     } catch (error) {
       this.logger.error(
@@ -147,7 +132,7 @@ export class EventConsumerService implements OnModuleDestroy {
         return;
       }
       await channel.cancel(consumerTag);
-      
+
       const tag = this.consumers.get(consumerTag);
       if (tag) {
         this.consumers.delete(consumerTag);
@@ -161,9 +146,7 @@ export class EventConsumerService implements OnModuleDestroy {
   }
 
   async cancelAllConsumers(): Promise<void> {
-    const promises = Array.from(this.consumers.keys()).map((tag) =>
-      this.cancelConsumer(tag),
-    );
+    const promises = Array.from(this.consumers.keys()).map((tag) => this.cancelConsumer(tag));
     await Promise.all(promises);
   }
 
@@ -187,7 +170,7 @@ export class EventConsumerService implements OnModuleDestroy {
 
       // Create a delayed message using a temporary queue with TTL
       const tempQueue = `${queue}.retry.${retryCount}.${Date.now()}`;
-      
+
       await channel.assertQueue(tempQueue, {
         durable: false,
         autoDelete: true,
@@ -213,7 +196,7 @@ export class EventConsumerService implements OnModuleDestroy {
 
       // Acknowledge original message
       channel.ack(message);
-      
+
       this.logger.debug(
         `Message ${message.properties.messageId} requeued with ${delay}ms delay (retry ${retryCount})`,
       );

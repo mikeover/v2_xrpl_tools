@@ -3,9 +3,9 @@ import { v4 as uuidv4 } from 'uuid';
 import { LoggerService } from '../../../core/logger/logger.service';
 import { RabbitMQConnectionService } from './rabbitmq-connection.service';
 import { QUEUE_CONSTANTS, QUEUE_ERRORS } from '../constants/queue.constants';
-import { 
-  PublishOptions, 
-  QueueEvent, 
+import {
+  PublishOptions,
+  QueueEvent,
   EventType,
   LedgerEvent,
   TransactionEvent,
@@ -71,13 +71,8 @@ export class EventPublisherService {
 
     // Determine routing key based on event type
     const routingKey = eventType.replace('nft.', '');
-    
-    await this.publishEvent(
-      QUEUE_CONSTANTS.EXCHANGES.XRPL,
-      `nft.${routingKey}`,
-      event,
-      options,
-    );
+
+    await this.publishEvent(QUEUE_CONSTANTS.EXCHANGES.XRPL, `nft.${routingKey}`, event, options);
   }
 
   async publishEvent(
@@ -92,7 +87,7 @@ export class EventPublisherService {
         this.logger.debug('RabbitMQ not connected - skipping event publication');
         return;
       }
-      
+
       const messageOptions = {
         persistent: options?.persistent ?? true,
         messageId: options?.messageId ?? event.eventId,
@@ -108,13 +103,8 @@ export class EventPublisherService {
       };
 
       const messageBuffer = Buffer.from(JSON.stringify(event));
-      
-      const published = channel.publish(
-        exchange,
-        routingKey,
-        messageBuffer,
-        messageOptions,
-      );
+
+      const published = channel.publish(exchange, routingKey, messageBuffer, messageOptions);
 
       if (!published) {
         throw new Error('Channel buffer is full');
@@ -143,10 +133,10 @@ export class EventPublisherService {
         this.logger.debug('RabbitMQ not connected - skipping batch publication');
         return;
       }
-      
+
       // Use channel flow control
       let canPublish = true;
-      
+
       for (const event of events) {
         if (!canPublish) {
           // Wait for drain event
@@ -173,18 +163,11 @@ export class EventPublisherService {
         };
 
         const messageBuffer = Buffer.from(JSON.stringify(event));
-        
-        canPublish = channel.publish(
-          exchange,
-          routingKey,
-          messageBuffer,
-          messageOptions,
-        );
+
+        canPublish = channel.publish(exchange, routingKey, messageBuffer, messageOptions);
       }
 
-      this.logger.debug(
-        `Published batch of ${events.length} events to ${exchange}/${routingKey}`,
-      );
+      this.logger.debug(`Published batch of ${events.length} events to ${exchange}/${routingKey}`);
     } catch (error) {
       this.logger.error(
         `Failed to publish batch: ${error instanceof Error ? error.message : String(error)}`,
