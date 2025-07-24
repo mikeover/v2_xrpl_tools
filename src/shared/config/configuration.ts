@@ -38,6 +38,12 @@ export interface AppConfiguration {
   jwt: {
     secret: string;
     expiration: string;
+    expiresIn?: string;
+    refreshTokenSecret?: string;
+    refreshTokenExpiresIn?: string;
+  };
+  security: {
+    bcryptSaltRounds?: number;
   };
   discord: {
     webhookUrl?: string | undefined;
@@ -113,6 +119,14 @@ export const configuration = (): AppConfiguration => {
     jwt: {
       secret: process.env['JWT_SECRET'] || 'default-secret',
       expiration: process.env['JWT_EXPIRATION'] || '7d',
+      expiresIn: process.env['JWT_EXPIRATION'] || '7d',
+      ...(process.env['JWT_REFRESH_TOKEN_SECRET'] && { refreshTokenSecret: process.env['JWT_REFRESH_TOKEN_SECRET'] }),
+      ...(process.env['JWT_REFRESH_TOKEN_EXPIRATION'] && { refreshTokenExpiresIn: process.env['JWT_REFRESH_TOKEN_EXPIRATION'] }),
+    },
+    security: {
+      ...(process.env['BCRYPT_SALT_ROUNDS'] && { 
+        bcryptSaltRounds: parseInt(process.env['BCRYPT_SALT_ROUNDS'], 10)
+      }),
     },
     discord: {
       webhookUrl: process.env['DISCORD_WEBHOOK_URL'],

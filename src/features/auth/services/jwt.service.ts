@@ -118,7 +118,7 @@ export class JwtAuthService {
       return null;
     }
 
-    return parts[1];
+    return parts[1] || null;
   }
 
   async generateApiKey(userId: string): Promise<string> {
