@@ -1,0 +1,17 @@
+# Task ID: 6
+# Title: Create Event Classifier Service
+# Status: pending
+# Dependencies: 4
+# Priority: high
+# Description: Build service to identify and categorize NFT activities from raw XRPL transactions
+# Details:
+- Identify NFTokenMint transactions
+- Detect NFTokenCreateOffer (sales/offers)
+- Recognize NFTokenAcceptOffer (completed sales)
+- Identify NFTokenBurn transactions
+- Extract relevant data from each type
+- Map to internal activity types
+- Handle edge cases and malformed data
+
+# Test Strategy:
+

@@ -1,0 +1,18 @@
+# Task ID: 14
+# Title: Set up message queue system
+# Status: pending
+# Dependencies: 1
+# Priority: medium
+# Description: Implement RabbitMQ for reliable async processing and service decoupling
+# Details:
+- Configure RabbitMQ exchanges and queues
+- Implement message publishers
+- Create consumer services
+- Add dead letter queue handling
+- Implement message acknowledgments
+- Add retry mechanisms
+- Create queue monitoring
+- Implement priority queues
+
+# Test Strategy:
+

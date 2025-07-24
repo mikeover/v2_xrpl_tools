@@ -1,0 +1,302 @@
+<context>
+# Overview
+The XRP Ledger NFT Activity Monitoring System is a comprehensive real-time monitoring and alerting platform designed to track NFT-related activities on the XRP Ledger. It serves NFT collectors, traders, and enthusiasts who need instant notifications about mints, sales, and listings based on their specific interests. The system provides value by enabling users to never miss important NFT events, make informed trading decisions, and stay ahead in the fast-paced NFT market.
+
+# Core Features
+
+## Real-time Transaction Monitoring
+- Monitors all XRPL transactions as they're confirmed on the ledger
+- Identifies and classifies NFT-specific activities (mints, sales, offers, burns)
+- Maintains persistent connections to multiple XRPL nodes for reliability
+- Automatically detects and recovers from ledger gaps to ensure no transactions are missed
+
+## NFT Metadata and Image Management
+- Fetches metadata from IPFS, HTTP, and Arweave sources
+- Downloads and processes NFT images with automatic optimization
+- Caches all data in S3 with CDN distribution for fast access
+- Supports retroactive metadata fetching for existing NFTs
+
+## User Alert Configuration System
+- Allows users to create custom alerts based on collections (issuer + taxon)
+- Supports complex trait-based filtering with AND/OR logic
+- Price range filtering for sales and offers
+- Activity type filtering (mints, sales, offers)
+- Multiple notification channels per alert
+
+## Multi-channel Notification Delivery
+- Discord integration with rich embeds
+- Email notifications with customizable templates
+- Webhook support for custom integrations
+- Real-time WebSocket notifications for web/mobile apps
+- Rate limiting to prevent spam
+
+## Analytics and Insights
+- Collection-level statistics and trends
+- User activity dashboards
+- NFT price history tracking
+- Market activity reports
+
+# User Experience
+
+## User Personas
+
+### NFT Collector
+- Wants to track specific collections they're interested in
+- Needs instant notifications for new mints and rare traits
+- Values accurate metadata and high-quality images
+
+### NFT Trader
+- Requires real-time alerts for market opportunities
+- Needs price-based filtering for profit opportunities
+- Wants comprehensive activity history
+
+### Collection Creator
+- Monitors their own collection's activity
+- Tracks secondary market sales
+- Analyzes buyer behavior and trends
+
+## Key User Flows
+
+### Alert Setup Flow
+1. User connects wallet or creates account
+2. Searches for collections by name or issuer
+3. Configures alert criteria (traits, price, activity types)
+4. Selects notification channels
+5. Receives test notification to confirm setup
+
+### Notification Flow
+1. System detects matching NFT activity
+2. Enriches event with metadata and images
+3. Formats notification based on channel requirements
+4. Delivers notification with retry logic
+5. Tracks delivery status and user engagement
+
+## UI/UX Considerations
+- Clean, intuitive interface for alert configuration
+- Real-time activity feed with filtering options
+- Mobile-responsive design for on-the-go monitoring
+- Dark mode support for extended viewing
+- Accessibility compliance (WCAG 2.1)
+</context>
+<PRD>
+# Technical Architecture
+
+## System Components
+
+### Infrastructure Layer
+- XRPL Connection Manager with multi-node failover
+- PostgreSQL with TimescaleDB for time-series data
+- Redis Cluster for caching and real-time data
+- AWS S3 for image and metadata storage
+- RabbitMQ for reliable message queuing
+- Kubernetes for container orchestration
+
+### Core Processing Layer
+- Transaction Ingestion Service for real-time XRPL monitoring
+- Event Classifier to identify NFT activities
+- Enrichment Service for metadata and pricing data
+- Matcher Service for alert rule evaluation
+- Queue Manager for async processing
+
+### Application Layer
+- REST API for client interactions
+- WebSocket server for real-time updates
+- Alert Configuration Service
+- User Management Service
+- Notification Service with multi-channel support
+- Analytics Service for insights
+
+## Data Models
+
+### Core Entities
+- Collections (issuer + taxon combinations)
+- NFTs (individual tokens with metadata)
+- NFT Activities (mints, sales, offers)
+- Alert Configurations (user-defined rules)
+- Notifications (queued and sent messages)
+- Users and authentication data
+
+### Supporting Data
+- Ledger sync status tracking
+- Metadata cache with TTL
+- Image processing queue
+- Notification delivery logs
+- Analytics aggregations
+
+## APIs and Integrations
+
+### External APIs
+- XRPL WebSocket API for transaction streaming
+- xrpldata API for supplementary data
+- IPFS gateways for metadata retrieval
+- Discord API for notifications
+- SendGrid/SES for email delivery
+
+### Internal APIs
+- RESTful API with OpenAPI documentation
+- GraphQL for complex queries
+- WebSocket for real-time subscriptions
+- Admin API for system management
+
+## Infrastructure Requirements
+
+### Compute
+- Auto-scaling container clusters
+- GPU instances for image processing
+- High-memory instances for caching
+
+### Storage
+- 10TB+ S3 storage for images/metadata
+- 1TB+ PostgreSQL cluster
+- 100GB+ Redis cluster
+
+### Network
+- CloudFront CDN for global distribution
+- Load balancers with SSL termination
+- VPC with private subnets
+
+# Development Roadmap
+
+## Phase 1: Foundation (MVP)
+- Basic XRPL connection management with single node
+- Transaction ingestion and classification
+- Simple NFT activity detection (mints and sales only)
+- PostgreSQL database setup with core tables
+- Basic REST API with authentication
+- Simple alert configuration (collection-level only)
+- Discord notification channel
+- Manual deployment process
+
+## Phase 2: Core Features
+- Multi-node XRPL connection with failover
+- Complete transaction type support (offers, burns)
+- Metadata fetching from IPFS/HTTP
+- Image downloading and S3 storage
+- Redis caching layer
+- Email notification channel
+- Web-based alert configuration UI
+- Basic user dashboard
+
+## Phase 3: Advanced Features
+- Trait-based alert filtering
+- Price range filtering
+- Complex matching rules (AND/OR logic)
+- Webhook notification channel
+- WebSocket real-time updates
+- Retroactive metadata fetching
+- Queue-based async processing
+- Kubernetes deployment
+
+## Phase 4: Scale and Polish
+- Multi-region deployment
+- Advanced analytics dashboard
+- Mobile app (React Native)
+- API rate limiting and quotas
+- Advanced monitoring and alerting
+- Performance optimizations
+- Security hardening
+- Comprehensive documentation
+
+## Phase 5: Future Enhancements
+- Machine learning for price predictions
+- Automated trading bot integration
+- Multi-chain support (Ethereum, Solana)
+- Advanced market analytics
+- Social features (follow traders, share alerts)
+- NFT portfolio tracking
+- Custom notification templates
+
+# Logical Dependency Chain
+
+## Foundation Dependencies
+1. XRPL Connection Manager (everything depends on this)
+2. Database schema and models
+3. Transaction ingestion pipeline
+4. Basic authentication system
+
+## Core Processing Chain
+1. Event classification (depends on ingestion)
+2. Enrichment service (depends on classification)
+3. Matcher service (depends on enrichment)
+4. Notification queue (depends on matcher)
+
+## User-Facing Features
+1. API Gateway (depends on auth)
+2. Alert configuration (depends on API)
+3. Notification delivery (depends on queue)
+4. User dashboard (depends on API)
+
+## Scaling Features
+1. Redis caching (enhances all components)
+2. Queue system (improves reliability)
+3. Monitoring (requires all components)
+4. Analytics (aggregates from all data)
+
+# Risks and Mitigations
+
+## Technical Challenges
+
+### XRPL Node Reliability
+- Risk: Single node failure causes service outage
+- Mitigation: Multi-node architecture with automatic failover
+
+### IPFS Gateway Availability
+- Risk: Gateway timeouts prevent metadata fetching
+- Mitigation: Multiple gateway fallbacks, aggressive caching
+
+### High Transaction Volume
+- Risk: System overwhelmed during NFT drops
+- Mitigation: Queue-based processing, horizontal scaling
+
+## MVP Scoping
+
+### Feature Creep
+- Risk: Trying to build everything at once
+- Mitigation: Strict MVP definition, phased rollout
+
+### User Adoption
+- Risk: Complex setup prevents user onboarding
+- Mitigation: Simple initial UI, guided setup flow
+
+## Resource Constraints
+
+### Development Time
+- Risk: 12-week timeline is aggressive
+- Mitigation: Focus on core features, defer nice-to-haves
+
+### Infrastructure Costs
+- Risk: High AWS bills from image storage
+- Mitigation: Implement smart caching, image optimization
+
+# Appendix
+
+## Performance Requirements
+- Process 1000+ transactions per second
+- Sub-100ms API response times (p95)
+- 99.9% uptime with automatic failover
+- Support 100,000+ concurrent users
+
+## Security Considerations
+- JWT-based authentication
+- API rate limiting per user/IP
+- Encryption at rest and in transit
+- VPC isolation for infrastructure
+- Regular security audits
+
+## Technology Stack
+- TypeScript/Node.js for all services
+- NestJS framework for structure
+- PostgreSQL with TimescaleDB
+- Redis for caching
+- RabbitMQ for queuing
+- React for web UI
+- React Native for mobile
+- Docker/Kubernetes for deployment
+
+## Monitoring Strategy
+- Prometheus for metrics collection
+- Grafana for visualization
+- ELK stack for log aggregation
+- Jaeger for distributed tracing
+- PagerDuty for alerting
+</PRD>

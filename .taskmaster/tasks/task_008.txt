@@ -1,0 +1,18 @@
+# Task ID: 8
+# Title: Build Alert Configuration Service
+# Status: pending
+# Dependencies: 6
+# Priority: high
+# Description: Create service allowing users to configure custom NFT monitoring rules with complex filters
+# Details:
+- Create alert CRUD operations
+- Implement collection-based filtering
+- Add trait-based filtering with AND/OR logic
+- Implement price range filters
+- Add activity type selection
+- Create notification channel configuration
+- Validate alert configurations
+- Implement alert enable/disable functionality
+
+# Test Strategy:
+

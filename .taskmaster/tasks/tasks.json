@@ -1,0 +1,207 @@
+{
+  "master": {
+    "tasks": [
+      {
+        "id": 1,
+        "title": "Set up NestJS project foundation",
+        "description": "Initialize NestJS project with TypeScript configuration, basic module structure, and development dependencies",
+        "details": "- Initialize NestJS project using CLI\n- Configure TypeScript with strict mode\n- Set up ESLint and Prettier\n- Create basic module structure (core, shared, features)\n- Configure environment variables with @nestjs/config\n- Set up basic error handling and logging",
+        "testStrategy": "",
+        "status": "done",
+        "dependencies": [],
+        "priority": "high",
+        "subtasks": []
+      },
+      {
+        "id": 3,
+        "title": "Implement XRPL Connection Manager",
+        "description": "Create a robust connection manager for XRPL WebSocket connections with multi-node support and automatic failover",
+        "details": "- Implement WebSocket connection to XRPL nodes\n- Add multi-node support with health checking\n- Implement automatic failover on connection loss\n- Create connection pooling for reliability\n- Add exponential backoff for reconnection\n- Include connection state management\n- Implement event emitters for connection events",
+        "testStrategy": "",
+        "status": "pending",
+        "dependencies": [
+          1
+        ],
+        "priority": "high",
+        "subtasks": []
+      },
+      {
+        "id": 4,
+        "title": "Design PostgreSQL database schema",
+        "description": "Design and implement comprehensive database schema with TimescaleDB for time-series data",
+        "details": "- Create collections table (issuer + taxon)\n- Design NFTs table with metadata storage\n- Implement nft_activities table for transactions\n- Create alert_configs table for user rules\n- Design notifications table for delivery tracking\n- Add ledger_sync_status for monitoring\n- Configure TimescaleDB hypertables\n- Create necessary indexes for performance",
+        "testStrategy": "",
+        "status": "pending",
+        "dependencies": [
+          1
+        ],
+        "priority": "high",
+        "subtasks": []
+      },
+      {
+        "id": 5,
+        "title": "Build Transaction Ingestion Service",
+        "description": "Create service to capture and process XRPL transactions in real-time with deduplication",
+        "details": "- Subscribe to XRPL transaction stream\n- Implement transaction filtering for NFT types\n- Add deduplication logic\n- Create transaction queue for processing\n- Implement batch insertion for performance\n- Add error handling and retry logic\n- Track ledger gaps and recovery",
+        "testStrategy": "",
+        "status": "pending",
+        "dependencies": [
+          3
+        ],
+        "priority": "high",
+        "subtasks": []
+      },
+      {
+        "id": 6,
+        "title": "Create Event Classifier Service",
+        "description": "Build service to identify and categorize NFT activities from raw XRPL transactions",
+        "details": "- Identify NFTokenMint transactions\n- Detect NFTokenCreateOffer (sales/offers)\n- Recognize NFTokenAcceptOffer (completed sales)\n- Identify NFTokenBurn transactions\n- Extract relevant data from each type\n- Map to internal activity types\n- Handle edge cases and malformed data",
+        "testStrategy": "",
+        "status": "pending",
+        "dependencies": [
+          4
+        ],
+        "priority": "high",
+        "subtasks": []
+      },
+      {
+        "id": 7,
+        "title": "Implement User Management Service",
+        "description": "Create comprehensive user management with JWT authentication and role-based access",
+        "details": "- Implement user registration and login\n- Add JWT token generation and validation\n- Create password hashing with bcrypt\n- Implement refresh token mechanism\n- Add role-based access control\n- Create user profile management\n- Implement API key generation for webhooks",
+        "testStrategy": "",
+        "status": "pending",
+        "dependencies": [
+          3
+        ],
+        "priority": "high",
+        "subtasks": []
+      },
+      {
+        "id": 8,
+        "title": "Build Alert Configuration Service",
+        "description": "Create service allowing users to configure custom NFT monitoring rules with complex filters",
+        "details": "- Create alert CRUD operations\n- Implement collection-based filtering\n- Add trait-based filtering with AND/OR logic\n- Implement price range filters\n- Add activity type selection\n- Create notification channel configuration\n- Validate alert configurations\n- Implement alert enable/disable functionality",
+        "testStrategy": "",
+        "status": "pending",
+        "dependencies": [
+          6
+        ],
+        "priority": "high",
+        "subtasks": []
+      },
+      {
+        "id": 9,
+        "title": "Create Metadata Enrichment Service",
+        "description": "Build service to fetch and cache NFT metadata from IPFS, HTTP, and Arweave sources",
+        "details": "- Parse NFT URI from transactions\n- Implement IPFS gateway integration\n- Add HTTP metadata fetching\n- Create Arweave integration\n- Implement retry logic with exponential backoff\n- Add metadata validation\n- Create caching layer\n- Handle malformed metadata gracefully",
+        "testStrategy": "",
+        "status": "pending",
+        "dependencies": [
+          5
+        ],
+        "priority": "medium",
+        "subtasks": []
+      },
+      {
+        "id": 10,
+        "title": "Implement Matcher Service",
+        "description": "Create service to evaluate NFT activities against user alert configurations in real-time",
+        "details": "- Load active alert configurations\n- Implement collection matching logic\n- Add trait matching with complex logic\n- Implement price range evaluation\n- Create activity type matching\n- Optimize for high-throughput matching\n- Add caching for frequently accessed rules\n- Implement match result queuing",
+        "testStrategy": "",
+        "status": "pending",
+        "dependencies": [
+          7,
+          8
+        ],
+        "priority": "high",
+        "subtasks": []
+      },
+      {
+        "id": 11,
+        "title": "Build Notification Service",
+        "description": "Create multi-channel notification delivery system starting with Discord integration",
+        "details": "- Implement Discord webhook integration\n- Create rich embed formatting\n- Add notification queuing system\n- Implement delivery retry logic\n- Add rate limiting per channel\n- Create delivery status tracking\n- Implement notification templates\n- Add user preference management",
+        "testStrategy": "",
+        "status": "pending",
+        "dependencies": [
+          9
+        ],
+        "priority": "high",
+        "subtasks": []
+      },
+      {
+        "id": 12,
+        "title": "Develop REST API Gateway",
+        "description": "Create comprehensive REST API with OpenAPI documentation for all client interactions",
+        "details": "- Design RESTful endpoints for all services\n- Implement request validation\n- Add response serialization\n- Create OpenAPI/Swagger documentation\n- Implement rate limiting\n- Add CORS configuration\n- Create API versioning strategy\n- Implement error response standards",
+        "testStrategy": "",
+        "status": "pending",
+        "dependencies": [
+          6,
+          7
+        ],
+        "priority": "high",
+        "subtasks": []
+      },
+      {
+        "id": 13,
+        "title": "Implement Redis caching layer",
+        "description": "Add Redis Cluster for caching metadata, images, and frequently accessed data",
+        "details": "- Set up Redis Cluster configuration\n- Implement caching strategy\n- Add TTL management\n- Create cache invalidation logic\n- Implement distributed locking\n- Add cache warming strategies\n- Monitor cache hit rates\n- Implement fallback mechanisms",
+        "testStrategy": "",
+        "status": "pending",
+        "dependencies": [
+          8
+        ],
+        "priority": "medium",
+        "subtasks": []
+      },
+      {
+        "id": 14,
+        "title": "Set up message queue system",
+        "description": "Implement RabbitMQ for reliable async processing and service decoupling",
+        "details": "- Configure RabbitMQ exchanges and queues\n- Implement message publishers\n- Create consumer services\n- Add dead letter queue handling\n- Implement message acknowledgments\n- Add retry mechanisms\n- Create queue monitoring\n- Implement priority queues",
+        "testStrategy": "",
+        "status": "pending",
+        "dependencies": [
+          1
+        ],
+        "priority": "medium",
+        "subtasks": []
+      },
+      {
+        "id": 15,
+        "title": "Create monitoring and observability",
+        "description": "Implement comprehensive monitoring with metrics, logging, and distributed tracing",
+        "details": "- Set up structured logging\n- Implement Prometheus metrics\n- Add health check endpoints\n- Create custom business metrics\n- Implement distributed tracing\n- Add performance monitoring\n- Create alerting rules\n- Build monitoring dashboards",
+        "testStrategy": "",
+        "status": "pending",
+        "dependencies": [
+          11
+        ],
+        "priority": "medium",
+        "subtasks": []
+      },
+      {
+        "id": 16,
+        "title": "Implement comprehensive testing",
+        "description": "Create unit, integration, and e2e tests for all services with high coverage",
+        "details": "- Set up Jest for unit testing\n- Create integration test framework\n- Implement e2e test scenarios\n- Add test data factories\n- Create mock services\n- Implement load testing\n- Add CI test automation\n- Create test coverage reporting",
+        "testStrategy": "",
+        "status": "pending",
+        "dependencies": [
+          11
+        ],
+        "priority": "medium",
+        "subtasks": []
+      }
+    ],
+    "metadata": {
+      "version": "1.0.0",
+      "created": "$(date -u +\"%Y-%m-%dT%H:%M:%S.%3NZ\")",
+      "updated": "2025-07-24T17:02:47.812Z",
+      "description": "Tasks for master context"
+    }
+  }
+}

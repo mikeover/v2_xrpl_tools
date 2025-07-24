@@ -1,0 +1,18 @@
+# Task ID: 9
+# Title: Create Metadata Enrichment Service
+# Status: pending
+# Dependencies: 5
+# Priority: medium
+# Description: Build service to fetch and cache NFT metadata from IPFS, HTTP, and Arweave sources
+# Details:
+- Parse NFT URI from transactions
+- Implement IPFS gateway integration
+- Add HTTP metadata fetching
+- Create Arweave integration
+- Implement retry logic with exponential backoff
+- Add metadata validation
+- Create caching layer
+- Handle malformed metadata gracefully
+
+# Test Strategy:
+

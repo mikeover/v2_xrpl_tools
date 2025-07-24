@@ -1,0 +1,18 @@
+# Task ID: 10
+# Title: Implement Matcher Service
+# Status: pending
+# Dependencies: 7, 8
+# Priority: high
+# Description: Create service to evaluate NFT activities against user alert configurations in real-time
+# Details:
+- Load active alert configurations
+- Implement collection matching logic
+- Add trait matching with complex logic
+- Implement price range evaluation
+- Create activity type matching
+- Optimize for high-throughput matching
+- Add caching for frequently accessed rules
+- Implement match result queuing
+
+# Test Strategy:
+

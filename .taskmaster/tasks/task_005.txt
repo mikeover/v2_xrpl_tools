@@ -1,0 +1,17 @@
+# Task ID: 5
+# Title: Build Transaction Ingestion Service
+# Status: pending
+# Dependencies: 3
+# Priority: high
+# Description: Create service to capture and process XRPL transactions in real-time with deduplication
+# Details:
+- Subscribe to XRPL transaction stream
+- Implement transaction filtering for NFT types
+- Add deduplication logic
+- Create transaction queue for processing
+- Implement batch insertion for performance
+- Add error handling and retry logic
+- Track ledger gaps and recovery
+
+# Test Strategy:
+

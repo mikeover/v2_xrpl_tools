@@ -1,0 +1,18 @@
+# Task ID: 4
+# Title: Design PostgreSQL database schema
+# Status: pending
+# Dependencies: 1
+# Priority: high
+# Description: Design and implement comprehensive database schema with TimescaleDB for time-series data
+# Details:
+- Create collections table (issuer + taxon)
+- Design NFTs table with metadata storage
+- Implement nft_activities table for transactions
+- Create alert_configs table for user rules
+- Design notifications table for delivery tracking
+- Add ledger_sync_status for monitoring
+- Configure TimescaleDB hypertables
+- Create necessary indexes for performance
+
+# Test Strategy:
+
