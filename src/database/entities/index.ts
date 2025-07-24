@@ -5,3 +5,5 @@ export { NftActivityEntity } from './nft-activity.entity';
 export { AlertConfigEntity } from './alert-config.entity';
 export { NotificationEntity } from './notification.entity';
 export { LedgerSyncStatusEntity } from './ledger-sync-status.entity';
+export { ApiKeyEntity } from './api-key.entity';
+export { RefreshTokenEntity } from './refresh-token.entity';

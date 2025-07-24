@@ -319,6 +319,8 @@ export class XRPLConnectionManagerService
           streams: ['ledger', 'transactions'],
         });
 
+        this.logger.log(`Subscribed to transaction streams for ${node.url}`);
+
         // Set up event handlers
         client.on('ledgerClosed', (ledger) => {
           this.handleLedgerClosed(ledger);

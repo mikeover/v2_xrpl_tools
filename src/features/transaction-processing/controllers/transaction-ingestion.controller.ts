@@ -204,4 +204,16 @@ export class TransactionIngestionController {
       throw error;
     }
   }
+
+  @Get('debug/recent-transactions')
+  async getRecentTransactionTypes(): Promise<{ 
+    message: string; 
+    stats: { transactionType: string; count: number }[];
+  }> {
+    // This is a debug endpoint to see what transaction types we're receiving
+    return {
+      message: 'Debug endpoint - check logs for transaction type details',
+      stats: [],
+    };
+  }
 }

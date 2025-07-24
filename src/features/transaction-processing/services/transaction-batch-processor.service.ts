@@ -289,11 +289,10 @@ export class TransactionBatchProcessorService {
 
     // Count activities from the last hour
     const oneHourAgo = new Date(Date.now() - 60 * 60 * 1000);
-    const recentActivities = await this.nftActivityRepository.count({
-      where: {
-        createdAt: { $gte: oneHourAgo } as any,
-      },
-    });
+    const recentActivities = await this.nftActivityRepository
+      .createQueryBuilder('activity')
+      .where('activity.created_at >= :oneHourAgo', { oneHourAgo })
+      .getCount();
 
     return {
       totalActivities,

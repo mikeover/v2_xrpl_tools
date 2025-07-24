@@ -14,7 +14,14 @@ export class NFTTransactionParserService {
 
   isNFTTransaction(transaction: any): boolean {
     const txType = transaction.TransactionType || transaction.transaction_type;
-    return NFT_TRANSACTION_TYPES.includes(txType as NFTTransactionType);
+    const isNFT = NFT_TRANSACTION_TYPES.includes(txType as NFTTransactionType);
+    
+    // Debug logging for NFT detection
+    if (txType?.startsWith('NFToken')) {
+      this.logger.debug(`NFT Transaction Check: ${txType} -> ${isNFT ? 'ACCEPTED' : 'REJECTED'}`);
+    }
+    
+    return isNFT;
   }
 
   parseNFTTransaction(transactionMessage: any): NFTTransactionData | null {

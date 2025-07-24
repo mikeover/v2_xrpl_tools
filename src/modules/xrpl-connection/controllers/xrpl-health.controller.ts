@@ -1,7 +1,7 @@
 import { Controller, Get } from '@nestjs/common';
 import { XRPLConnectionManagerService } from '../services/xrpl-connection-manager.service';
 
-@Controller('xrpl')
+@Controller('api/xrpl-connection')
 export class XRPLHealthController {
   constructor(private readonly connectionManager: XRPLConnectionManagerService) {}
 

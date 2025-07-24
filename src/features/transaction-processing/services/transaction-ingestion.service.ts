@@ -104,14 +104,28 @@ export class TransactionIngestionService implements OnModuleInit, OnModuleDestro
         this.lastProcessedLedger = transactionMessage.ledger_index;
       }
 
+      // Debug logging for transaction types
+      const tx = transactionMessage.transaction || transactionMessage;
+      if (this.processedCount % 100 === 0) {
+        this.logger.debug(`Processing transaction type: ${tx.TransactionType} (total processed: ${this.processedCount})`);
+      }
+
       // Check if this is an NFT transaction
-      if (!this.parser.isNFTTransaction(transactionMessage.transaction || transactionMessage)) {
+      const isNFTRelated = this.parser.isNFTTransaction(tx);
+      if (!isNFTRelated) {
+        // Log NFT transaction types we see (for debugging)
+        if (tx.TransactionType?.startsWith('NFToken')) {
+          this.logger.warn(`Found NFT transaction type ${tx.TransactionType} but parser rejected it`);
+        }
         return;
       }
+
+      this.logger.log(`🎯 NFT Transaction detected: ${tx.TransactionType} in ledger ${transactionMessage.ledger_index}`);
 
       // Parse the NFT transaction
       const nftTransaction = this.parser.parseNFTTransaction(transactionMessage);
       if (!nftTransaction) {
+        this.logger.warn(`Failed to parse NFT transaction of type ${tx.TransactionType}`);
         return;
       }
 
@@ -218,6 +232,7 @@ export class TransactionIngestionService implements OnModuleInit, OnModuleDestro
   private async loadLastProcessedLedger(): Promise<void> {
     try {
       const lastSync = await this.ledgerSyncRepository.findOne({
+        where: {},
         order: { ledgerIndex: 'DESC' },
       });
 
