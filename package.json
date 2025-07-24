@@ -17,7 +17,13 @@
     "test:watch": "jest --watch",
     "test:cov": "jest --coverage",
     "test:debug": "node --inspect-brk -r tsconfig-paths/register -r ts-node/register node_modules/.bin/jest --runInBand",
-    "test:e2e": "jest --config ./test/jest-e2e.json"
+    "test:e2e": "jest --config ./test/jest-e2e.json",
+    "typeorm:cli": "typeorm-ts-node-commonjs -d src/database/data-source.ts",
+    "migration:generate": "npm run typeorm:cli -- migration:generate",
+    "migration:create": "npm run typeorm:cli -- migration:create",
+    "migration:run": "npm run typeorm:cli -- migration:run",
+    "migration:revert": "npm run typeorm:cli -- migration:revert",
+    "migration:show": "npm run typeorm:cli -- migration:show"
   },
   "dependencies": {
     "@nestjs/common": "^11.0.1",
@@ -25,6 +31,7 @@
     "@nestjs/core": "^11.0.1",
     "@nestjs/microservices": "^11.1.5",
     "@nestjs/platform-express": "^11.0.1",
+    "@nestjs/typeorm": "^11.0.0",
     "@types/amqplib": "^0.10.7",
     "@types/uuid": "^10.0.0",
     "amqplib": "^0.10.8",
@@ -32,8 +39,10 @@
     "class-validator": "^0.14.2",
     "joi": "^17.13.3",
     "opossum": "^5.0.1",
+    "pg": "^8.16.3",
     "reflect-metadata": "^0.2.2",
     "rxjs": "^7.8.1",
+    "typeorm": "^0.3.25",
     "uuid": "^11.1.0",
     "xrpl": "^4.3.0"
   },
@@ -48,6 +57,7 @@
     "@types/express": "^5.0.0",
     "@types/jest": "^29.5.14",
     "@types/node": "^22.10.7",
+    "@types/pg": "^8.15.4",
     "@types/supertest": "^6.0.2",
     "eslint": "^9.18.0",
     "eslint-config-prettier": "^10.0.1",
