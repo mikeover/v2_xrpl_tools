@@ -13,6 +13,7 @@ import { CollectionEntity } from '../../database/entities/collection.entity';
 import { LedgerSyncStatusEntity } from '../../database/entities/ledger-sync-status.entity';
 import { CoreModule } from '../../core/core.module';
 import { XRPLConnectionModule } from '../../modules/xrpl-connection/xrpl-connection.module';
+import { MetadataModule } from '../metadata/metadata.module';
 
 @Module({
   imports: [
@@ -24,6 +25,7 @@ import { XRPLConnectionModule } from '../../modules/xrpl-connection/xrpl-connect
     ]),
     CoreModule,
     XRPLConnectionModule,
+    MetadataModule,
   ],
   controllers: [TransactionIngestionController, EventClassifierController],
   providers: [

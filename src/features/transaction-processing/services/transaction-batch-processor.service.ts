@@ -67,6 +67,7 @@ export class TransactionBatchProcessorService {
       this.logger.debug(
         `Successfully committed batch ${batchId} with ${batch.batchSize} transactions`,
       );
+      
     } catch (error) {
       await queryRunner.rollbackTransaction();
       
@@ -84,26 +85,42 @@ export class TransactionBatchProcessorService {
     transactions: NFTTransactionData[],
     queryRunner: QueryRunner,
   ): Promise<void> {
-    const activities: NftActivityEntity[] = [];
     const nftsToUpdate = new Map<string, Partial<NftEntity>>();
     const collectionsToCreate = new Map<string, CollectionEntity>();
+    const activities: NftActivityEntity[] = [];
 
+    // First pass: Process NFTs and collections
     for (const transaction of transactions) {
       try {
-        // Create NFT activity record
-        const activity = await this.createNftActivity(transaction, queryRunner);
-        activities.push(activity);
-
-        // Update or create NFT record if needed
         if (transaction.nftTokenID) {
           await this.processNFTUpdate(transaction, nftsToUpdate, collectionsToCreate, queryRunner);
         }
       } catch (error) {
         this.logger.error(
-          `Error processing transaction ${transaction.transactionHash}: ${error instanceof Error ? error.message : String(error)}`,
+          `Error processing NFT update for transaction ${transaction.transactionHash}: ${error instanceof Error ? error.message : String(error)}`,
         );
-        
-        // Continue with other transactions rather than failing the entire batch
+      }
+    }
+
+    // Create new collections first
+    if (collectionsToCreate.size > 0) {
+      await queryRunner.manager.save(CollectionEntity, Array.from(collectionsToCreate.values()));
+    }
+
+    // Update existing NFTs
+    for (const [nftId, updates] of nftsToUpdate) {
+      await queryRunner.manager.update(NftEntity, { nftId }, updates);
+    }
+
+    // Second pass: Create activities (now that NFTs exist)
+    for (const transaction of transactions) {
+      try {
+        const activity = await this.createNftActivity(transaction, queryRunner);
+        activities.push(activity);
+      } catch (error) {
+        this.logger.error(
+          `Error creating activity for transaction ${transaction.transactionHash}: ${error instanceof Error ? error.message : String(error)}`,
+        );
         continue;
       }
     }
@@ -111,16 +128,6 @@ export class TransactionBatchProcessorService {
     // Bulk insert activities
     if (activities.length > 0) {
       await queryRunner.manager.save(NftActivityEntity, activities);
-    }
-
-    // Create new collections
-    if (collectionsToCreate.size > 0) {
-      await queryRunner.manager.save(CollectionEntity, Array.from(collectionsToCreate.values()));
-    }
-
-    // Update NFTs
-    for (const [nftId, updates] of nftsToUpdate) {
-      await queryRunner.manager.update(NftEntity, { nftId }, updates);
     }
   }
 
@@ -237,16 +244,39 @@ export class TransactionBatchProcessorService {
       }
     }
 
-    // Create NFT entity
+    // Create NFT entity with decoded URI
     const nft = new NftEntity();
     nft.nftId = transaction.nftTokenID;
     nft.collectionId = collection.id;
     nft.ownerAddress = transaction.toAddress || transaction.fromAddress || '';
+    nft.metadataUriHex = transaction.metadata?.['uriHex'] || null;
     nft.metadataUri = transaction.metadata?.['uri'] || null;
-    nft.metadata = transaction.metadata;
     nft.lastActivityAt = transaction.timestamp;
+    
+    // Don't set metadata yet - it will be fetched asynchronously
+    nft.metadata = null;
+    nft.metadataFetchedAt = null;
 
     await queryRunner.manager.save(NftEntity, nft);
+    
+    // Queue for metadata enrichment (only if URI exists)
+    if (nft.metadataUri) {
+      await this.queueMetadataEnrichment(nft.nftId, queryRunner);
+    }
+  }
+
+  private async queueMetadataEnrichment(nftId: string, queryRunner: QueryRunner): Promise<void> {
+    try {
+      await queryRunner.query(`
+        INSERT INTO metadata_enrichment_queue (nft_id, status, next_retry_at)
+        VALUES ($1, 'pending', NOW())
+        ON CONFLICT (nft_id) DO NOTHING
+      `, [nftId]);
+      
+      this.logger.debug(`Queued NFT ${nftId} for metadata enrichment`);
+    } catch (error) {
+      this.logger.error(`Failed to queue metadata enrichment for NFT ${nftId}: ${error instanceof Error ? error.message : String(error)}`);
+    }
   }
 
   private extractCollectionName(metadata: any): string | null {

@@ -22,6 +22,7 @@ export class TransactionIngestionService implements OnModuleInit, OnModuleDestro
   private isProcessing = false;
   private processedCount = 0;
   private lastProcessedLedger = 0;
+  private debugStructureCount = 0;
 
   constructor(
     private readonly logger: LoggerService,
@@ -104,16 +105,40 @@ export class TransactionIngestionService implements OnModuleInit, OnModuleDestro
         this.lastProcessedLedger = transactionMessage.ledger_index;
       }
 
-      // Debug logging for transaction types
-      const tx = transactionMessage.transaction || transactionMessage;
-      if (this.processedCount % 100 === 0) {
-        this.logger.debug(`Processing transaction type: ${tx.TransactionType} (total processed: ${this.processedCount})`);
+      // Log EVERY transaction type for debugging
+      const rawTx = transactionMessage.transaction || transactionMessage;
+      const tx = rawTx.tx_json || rawTx; // The actual transaction data is in tx_json
+      const isNFTRelated = this.parser.isNFTTransaction(tx);
+      
+      // Debug the transaction structure to see what fields are available (only first 3 transactions)
+      if (this.debugStructureCount < 3) {
+        this.logger.debug('Raw transaction structure:', {
+          topLevelKeys: Object.keys(transactionMessage),
+          rawTxKeys: Object.keys(rawTx),
+          txJsonKeys: Object.keys(tx),
+          transactionType: tx.TransactionType,
+          txTransactionType: tx.transaction_type,
+          fullTxJson: tx
+        });
+        this.debugStructureCount++;
       }
+      
+      // Use the new transaction logging method to log every single transaction
+      this.logger.logTransaction(
+        tx.TransactionType || tx.transaction_type || 'UNKNOWN',
+        transactionMessage.ledger_index || 0,
+        isNFTRelated,
+        { 
+          hash: tx.hash || tx.Hash,
+          account: tx.Account,
+          fee: tx.Fee,
+          rawTxKeys: Object.keys(tx)
+        }
+      );
 
       // Check if this is an NFT transaction
-      const isNFTRelated = this.parser.isNFTTransaction(tx);
       if (!isNFTRelated) {
-        // Log NFT transaction types we see (for debugging)
+        // Specifically warn about NFT transaction types that get rejected
         if (tx.TransactionType?.startsWith('NFToken')) {
           this.logger.warn(`Found NFT transaction type ${tx.TransactionType} but parser rejected it`);
         }

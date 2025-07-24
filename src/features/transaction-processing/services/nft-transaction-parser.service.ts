@@ -13,7 +13,9 @@ export class NFTTransactionParserService {
   constructor(private readonly logger: LoggerService) {}
 
   isNFTTransaction(transaction: any): boolean {
-    const txType = transaction.TransactionType || transaction.transaction_type;
+    // Handle both direct transaction objects and wrapped ones
+    const tx = transaction.tx_json || transaction;
+    const txType = tx.TransactionType || tx.transaction_type;
     const isNFT = NFT_TRANSACTION_TYPES.includes(txType as NFTTransactionType);
     
     // Debug logging for NFT detection
@@ -26,25 +28,24 @@ export class NFTTransactionParserService {
 
   parseNFTTransaction(transactionMessage: any): NFTTransactionData | null {
     try {
-      const tx = transactionMessage.transaction || transactionMessage;
-      const meta = transactionMessage.meta || transactionMessage.metaData;
+      const rawTx = transactionMessage.transaction || transactionMessage;
+      const tx = rawTx.tx_json || rawTx; // The actual transaction data is in tx_json
+      const meta = transactionMessage.meta || rawTx.meta || transactionMessage.metaData;
 
       if (!this.isNFTTransaction(tx)) {
         return null;
       }
 
       const baseData: Partial<NFTTransactionData> = {
-        transactionHash: tx.hash || tx.Hash,
-        ledgerIndex: transactionMessage.ledger_index || tx.ledger_index,
-        timestamp: this.parseTimestamp(tx.date || tx.Date),
+        transactionHash: rawTx.hash || tx.hash || tx.Hash || rawTx.Hash,
+        ledgerIndex: transactionMessage.ledger_index || rawTx.ledger_index || tx.ledger_index,
+        timestamp: this.parseTimestamp(tx.date || tx.Date || rawTx.close_time_iso),
         fromAddress: tx.Account,
         metadata: {
           transactionType: tx.TransactionType,
           fee: tx.Fee,
-          sequence: tx.Sequence,
           flags: tx.Flags,
-          engineResult: transactionMessage.engine_result,
-          meta: meta,
+          engineResult: rawTx.engine_result || transactionMessage.engine_result,
         },
       };
 
@@ -85,7 +86,11 @@ export class NFTTransactionParserService {
     meta: any,
     baseData: Partial<NFTTransactionData>,
   ): NFTTransactionData {
-    const nftTokenID = this.extractNFTTokenIDFromMeta(meta);
+    const nftTokenID = this.extractNFTTokenIDFromMeta(meta, tx);
+
+    // Decode URI from hex if present
+    const uriHex = tx.URI;
+    const uriDecoded = uriHex ? this.decodeHexString(uriHex) : null;
 
     return {
       ...baseData,
@@ -96,8 +101,8 @@ export class NFTTransactionParserService {
         ...baseData.metadata,
         taxon: tx.NFTokenTaxon,
         transferFee: tx.TransferFee,
-        flags: tx.Flags,
-        uri: tx.URI,
+        uri: uriDecoded,
+        uriHex: uriHex,
         minter: tx.Account,
       },
     } as NFTTransactionData;
@@ -250,22 +255,70 @@ export class NFTTransactionParserService {
     };
   }
 
-  private extractNFTTokenIDFromMeta(meta: any): string | undefined {
+  private extractNFTTokenIDFromMeta(meta: any, tx?: any): string | undefined {
+    // First check if CLIO provided the NFT ID directly
+    if (meta?.nftoken_id) {
+      this.logger.debug(`Found NFT Token ID from CLIO: ${meta.nftoken_id}`);
+      return meta.nftoken_id;
+    }
+
     if (!meta || !meta.AffectedNodes) {
       return undefined;
     }
 
-    // Look for NFToken object creation or modification
+    // Look for NFTokenPage modifications (where NFTs are actually stored)
     for (const node of meta.AffectedNodes) {
-      if (node.CreatedNode?.LedgerEntryType === 'NFToken') {
-        return node.CreatedNode.NewFields?.NFTokenID;
+      // Check for NFTokenPage modifications
+      if (node.ModifiedNode?.LedgerEntryType === 'NFTokenPage') {
+        const previousTokens = node.ModifiedNode.PreviousFields?.NFTokens || [];
+        const finalTokens = node.ModifiedNode.FinalFields?.NFTokens || [];
+        
+        // For minting, find the new token (in final but not in previous)
+        if (finalTokens.length > previousTokens.length) {
+          const previousIds = new Set(previousTokens.map((t: any) => t.NFToken?.NFTokenID).filter(Boolean));
+          for (const token of finalTokens) {
+            const tokenId = token.NFToken?.NFTokenID;
+            if (tokenId && !previousIds.has(tokenId)) {
+              this.logger.debug(`Found newly minted NFT Token ID: ${tokenId}`);
+              return tokenId;
+            }
+          }
+        }
+        
+        // For burning, find the removed token (in previous but not in final)
+        if (finalTokens.length < previousTokens.length) {
+          const finalIds = new Set(finalTokens.map((t: any) => t.NFToken?.NFTokenID).filter(Boolean));
+          for (const token of previousTokens) {
+            const tokenId = token.NFToken?.NFTokenID;
+            if (tokenId && !finalIds.has(tokenId)) {
+              this.logger.debug(`Found burned NFT Token ID: ${tokenId}`);
+              return tokenId;
+            }
+          }
+        }
       }
-      if (node.ModifiedNode?.LedgerEntryType === 'NFToken') {
-        return node.ModifiedNode.FinalFields?.NFTokenID;
+
+      // Check NFTokenOffer nodes for offer-related transactions
+      if (node.CreatedNode?.LedgerEntryType === 'NFTokenOffer') {
+        const tokenId = node.CreatedNode.NewFields?.NFTokenID;
+        if (tokenId) {
+          this.logger.debug(`Found NFT Token ID from created offer: ${tokenId}`);
+          return tokenId;
+        }
       }
-      if (node.DeletedNode?.LedgerEntryType === 'NFToken') {
-        return node.DeletedNode.FinalFields?.NFTokenID;
+      
+      if (node.DeletedNode?.LedgerEntryType === 'NFTokenOffer') {
+        const tokenId = node.DeletedNode.FinalFields?.NFTokenID;
+        if (tokenId) {
+          this.logger.debug(`Found NFT Token ID from deleted offer: ${tokenId}`);
+          return tokenId;
+        }
       }
+    }
+
+    // Fallback: For NFTokenBurn transactions, the NFT ID is in the transaction itself
+    if (tx?.TransactionType === 'NFTokenBurn' && tx.NFTokenID) {
+      return tx.NFTokenID;
     }
 
     return undefined;
@@ -314,5 +367,31 @@ export class NFTTransactionParserService {
       seller: seller || undefined, 
       buyer: buyer || undefined 
     };
+  }
+
+  private decodeHexString(hexString: string): string {
+    try {
+      // Remove any spaces and ensure even length
+      const cleanHex = hexString.replace(/\s/g, '');
+      if (cleanHex.length % 2 !== 0) {
+        this.logger.warn(`Invalid hex string length: ${hexString}`);
+        return hexString; // Return original if invalid
+      }
+
+      // Convert hex to UTF-8
+      const decoded = Buffer.from(cleanHex, 'hex').toString('utf8');
+      
+      // Validate the decoded string is valid UTF-8
+      if (decoded.includes('\ufffd')) {
+        this.logger.warn(`Invalid UTF-8 in decoded hex: ${hexString}`);
+        return hexString; // Return original if invalid UTF-8
+      }
+
+      this.logger.debug(`Decoded hex URI: ${hexString} -> ${decoded}`);
+      return decoded;
+    } catch (error) {
+      this.logger.error(`Failed to decode hex string: ${error instanceof Error ? error.message : String(error)}`);
+      return hexString; // Return original on error
+    }
   }
 }
