@@ -79,14 +79,19 @@ The system follows a microservices architecture with these key layers:
 ### Week 3-4: Transaction Processing
 - Event Classifier for NFT transaction types
 - Transaction deduplication
-- Enrichment Service for metadata
+- Enrichment Service for NFT metadata (fetches actual NFT content from IPFS)
 - Message queue infrastructure
 
-### Week 5-6: Metadata & Storage
-- Metadata Fetcher with IPFS support
-- Image Processor with S3 integration
+### Week 5-6: NFT Metadata & Storage
+- **NFT Metadata Fetcher** with IPFS support (NOT transaction metadata)
+- **S3 Caching** for NFT metadata (images, descriptions, attributes)
+- **Image Processor** for NFT images with S3 integration
 - Retry logic and circuit breakers
-- Metadata indexing
+- NFT metadata indexing
+
+**IMPORTANT**: Distinguish between two types of metadata:
+1. **NFT Metadata**: The actual NFT content (name, description, image, attributes) stored on IPFS/HTTP - THIS IS WHAT WE CACHE
+2. **Transaction Metadata**: XRPL ledger transaction execution details (AffectedNodes, etc.) - THIS IS NOT STORED (too heavy)
 
 ### Week 7-8: User Features
 - Alert Configuration API
