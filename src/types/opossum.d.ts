@@ -1,5 +1,5 @@
 declare module 'opossum' {
-  export interface CircuitBreakerOptions {
+  interface CircuitBreakerOptions {
     timeout?: number;
     errorThresholdPercentage?: number;
     resetTimeout?: number;
@@ -13,7 +13,7 @@ declare module 'opossum' {
     volumeThreshold?: number;
   }
 
-  export default class CircuitBreaker {
+  class CircuitBreaker {
     constructor(action: (...args: any[]) => Promise<any>, options?: CircuitBreakerOptions);
 
     fire(...args: any[]): Promise<any>;
@@ -31,4 +31,6 @@ declare module 'opossum' {
     readonly opened: boolean;
     readonly halfOpen: boolean;
   }
+
+  export default CircuitBreaker;
 }

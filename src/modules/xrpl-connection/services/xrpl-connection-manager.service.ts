@@ -357,11 +357,11 @@ export class XRPLConnectionManagerService
   private getOrCreateCircuitBreaker(url: string): CircuitBreaker {
     let breaker = this.circuitBreakers.get(url);
     if (!breaker) {
-      breaker = new (CircuitBreaker as any)(async (fn: () => Promise<any>) => fn(), {
+      breaker = new CircuitBreaker(async (fn: () => Promise<any>) => fn(), {
         timeout: XRPL_CONSTANTS.CIRCUIT_BREAKER_TIMEOUT,
         errorThresholdPercentage: XRPL_CONSTANTS.CIRCUIT_BREAKER_THRESHOLD,
         resetTimeout: XRPL_CONSTANTS.CIRCUIT_BREAKER_RESET_TIMEOUT,
-      }) as CircuitBreaker;
+      });
 
       breaker.on('open', () => {
         this.logger.warn(`Circuit breaker opened for ${url}`);
