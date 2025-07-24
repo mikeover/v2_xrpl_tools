@@ -5,6 +5,8 @@ import { NFTTransactionParserService } from './services/nft-transaction-parser.s
 import { TransactionBatchProcessorService } from './services/transaction-batch-processor.service';
 import { TransactionDeduplicationService } from './services/transaction-deduplication.service';
 import { TransactionIngestionController } from './controllers/transaction-ingestion.controller';
+import { EventClassifierController } from './controllers/event-classifier.controller';
+import { EventClassifierService } from './services/event-classifier.service';
 import { NftActivityEntity } from '../../database/entities/nft-activity.entity';
 import { NftEntity } from '../../database/entities/nft.entity';
 import { CollectionEntity } from '../../database/entities/collection.entity';
@@ -23,18 +25,20 @@ import { XRPLConnectionModule } from '../../modules/xrpl-connection/xrpl-connect
     CoreModule,
     XRPLConnectionModule,
   ],
-  controllers: [TransactionIngestionController],
+  controllers: [TransactionIngestionController, EventClassifierController],
   providers: [
     TransactionIngestionService,
     NFTTransactionParserService,
     TransactionBatchProcessorService,
     TransactionDeduplicationService,
+    EventClassifierService,
   ],
   exports: [
     TransactionIngestionService,
     NFTTransactionParserService,
     TransactionBatchProcessorService,
     TransactionDeduplicationService,
+    EventClassifierService,
   ],
 })
 export class TransactionProcessingModule {}

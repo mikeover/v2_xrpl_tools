@@ -57,7 +57,7 @@
         "description": "Build service to identify and categorize NFT activities from raw XRPL transactions",
         "details": "- Identify NFTokenMint transactions\n- Detect NFTokenCreateOffer (sales/offers)\n- Recognize NFTokenAcceptOffer (completed sales)\n- Identify NFTokenBurn transactions\n- Extract relevant data from each type\n- Map to internal activity types\n- Handle edge cases and malformed data",
         "testStrategy": "",
-        "status": "pending",
+        "status": "done",
         "dependencies": [
           4
         ],
@@ -200,7 +200,7 @@
     "metadata": {
       "version": "1.0.0",
       "created": "$(date -u +\"%Y-%m-%dT%H:%M:%S.%3NZ\")",
-      "updated": "2025-07-24T19:38:34.296Z",
+      "updated": "2025-07-24T19:44:51.657Z",
       "description": "Tasks for master context"
     }
   }
