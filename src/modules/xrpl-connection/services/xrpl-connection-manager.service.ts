@@ -6,6 +6,7 @@ import CircuitBreaker from 'opossum';
 import { LoggerService } from '../../../core/logger/logger.service';
 import { ConfigService } from '@nestjs/config';
 import { AppConfiguration } from '../../../shared/config/configuration';
+import { EventPublisherService } from '../../queue/services/event-publisher.service';
 import { retry } from '../utils/retry.util';
 import {
   IXRPLConnectionManager,
@@ -48,6 +49,7 @@ export class XRPLConnectionManagerService
   constructor(
     private readonly logger: LoggerService,
     private readonly configService: ConfigService<AppConfiguration>,
+    private readonly eventPublisher: EventPublisherService,
   ) {
     const xrplConfig = this.configService.get('xrpl', { infer: true });
 
@@ -399,6 +401,9 @@ export class XRPLConnectionManagerService
 
     this.lastSeenLedger = ledgerMessage.ledgerIndex;
 
+    // Publish to message queue
+    this.publishLedgerEvent(ledgerMessage);
+
     // Notify subscribers
     this.ledgerSubscriptions.forEach((callback) => {
       try {
@@ -409,6 +414,22 @@ export class XRPLConnectionManagerService
         );
       }
     });
+  }
+
+  private async publishLedgerEvent(ledger: LedgerStreamMessage): Promise<void> {
+    try {
+      await this.eventPublisher.publishLedgerEvent({
+        ledgerIndex: ledger.ledgerIndex,
+        ledgerHash: ledger.ledgerHash,
+        ledgerTime: ledger.ledgerTime,
+        txnCount: ledger.txnCount,
+        validatedLedgerIndex: ledger.validatedLedgerIndex,
+      });
+    } catch (error) {
+      this.logger.error(
+        `Failed to publish ledger event: ${error instanceof Error ? error.message : String(error)}`,
+      );
+    }
   }
 
   private handleTransaction(tx: any): void {
@@ -423,6 +444,9 @@ export class XRPLConnectionManagerService
       validated: tx.validated !== false,
     };
 
+    // Publish to message queue
+    this.publishTransactionEvent(transactionMessage);
+
     // Notify subscribers
     this.transactionSubscriptions.forEach((callback) => {
       try {
@@ -433,6 +457,22 @@ export class XRPLConnectionManagerService
         );
       }
     });
+  }
+
+  private async publishTransactionEvent(transaction: TransactionStreamMessage): Promise<void> {
+    try {
+      await this.eventPublisher.publishTransactionEvent({
+        transaction: transaction.transaction,
+        meta: transaction.meta,
+        ledgerIndex: transaction.ledger_index,
+        ledgerHash: transaction.ledger_hash,
+        validated: transaction.validated,
+      });
+    } catch (error) {
+      this.logger.error(
+        `Failed to publish transaction event: ${error instanceof Error ? error.message : String(error)}`,
+      );
+    }
   }
 
   private handleDisconnection(node: XRPLNode): void {

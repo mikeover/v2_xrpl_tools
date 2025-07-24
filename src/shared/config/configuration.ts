@@ -49,6 +49,10 @@ export interface AppConfiguration {
   logging: {
     level: string;
   };
+  queue: {
+    url: string;
+    prefetchCount?: number | undefined;
+  };
 }
 
 export const configuration = (): AppConfiguration => {
@@ -119,6 +123,12 @@ export const configuration = (): AppConfiguration => {
     },
     logging: {
       level: process.env['LOG_LEVEL'] || 'info',
+    },
+    queue: {
+      url: process.env['RABBITMQ_URL'] || 'amqp://rabbitmq:rabbitmq@localhost:5672',
+      prefetchCount: process.env['RABBITMQ_PREFETCH_COUNT'] 
+        ? parseInt(process.env['RABBITMQ_PREFETCH_COUNT'], 10) 
+        : undefined,
     },
   };
 };

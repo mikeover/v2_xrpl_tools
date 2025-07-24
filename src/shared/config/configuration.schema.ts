@@ -53,4 +53,8 @@ export const configurationSchema = Joi.object({
 
   // Logging
   LOG_LEVEL: Joi.string().valid('error', 'warn', 'info', 'debug', 'verbose').default('info'),
+  
+  // RabbitMQ
+  RABBITMQ_URL: Joi.string().uri({ scheme: ['amqp', 'amqps'] }).default('amqp://localhost'),
+  RABBITMQ_PREFETCH_COUNT: Joi.number().min(1).optional(),
 });
