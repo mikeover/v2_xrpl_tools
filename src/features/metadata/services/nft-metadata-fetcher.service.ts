@@ -412,12 +412,14 @@ export class NFTMetadataFetcherService {
 
       // Validate content type
       const contentType = response.headers['content-type'];
-      if (!contentType || !contentType.startsWith('image/')) {
+      // Handle non-standard content types like 'jpg' instead of 'image/jpeg'
+      const normalizedContentType = this.normalizeContentType(contentType);
+      if (!normalizedContentType) {
         throw new Error(`Invalid content type: ${contentType}`);
       }
 
       // Determine file extension
-      const extension = this.getImageExtension(contentType);
+      const extension = this.getImageExtension(normalizedContentType);
       const s3Key = `${this.metadataCachePrefix}images/${nftTokenId}${extension}`;
 
       // Upload to S3
@@ -425,7 +427,7 @@ export class NFTMetadataFetcherService {
         Bucket: this.s3BucketName,
         Key: s3Key,
         Body: Buffer.from(response.data),
-        ContentType: contentType,
+        ContentType: normalizedContentType,
         Metadata: {
           nftTokenId,
           originalUrl: imageUrl,
@@ -488,6 +490,43 @@ export class NFTMetadataFetcherService {
   private convertIpfsToHttp(ipfsUrl: string): string {
     const hash = ipfsUrl.replace('ipfs://', '');
     return `${this.ipfsGateways[0]}${hash}`;
+  }
+
+  private normalizeContentType(contentType: string | undefined): string | null {
+    if (!contentType) {
+      return null;
+    }
+
+    const ct = contentType.toLowerCase();
+    
+    // Handle non-standard content types
+    const typeMap: Record<string, string> = {
+      'jpg': 'image/jpeg',
+      'jpeg': 'image/jpeg',
+      'png': 'image/png',
+      'gif': 'image/gif',
+      'webp': 'image/webp',
+      'svg': 'image/svg+xml',
+    };
+
+    // If it's already a proper content type
+    if (ct.startsWith('image/')) {
+      return ct;
+    }
+
+    // Try to map non-standard types
+    if (typeMap[ct]) {
+      return typeMap[ct];
+    }
+
+    // Check if it contains image type info
+    for (const [key, value] of Object.entries(typeMap)) {
+      if (ct.includes(key)) {
+        return value;
+      }
+    }
+
+    return null;
   }
 
   private getImageExtension(contentType: string): string {
