@@ -3,7 +3,7 @@ import * as amqplib from 'amqplib';
 import { EventConsumerService } from '../../../modules/queue/services/event-consumer.service';
 import { TransactionIngestionService } from './transaction-ingestion.service';
 import { LoggerService } from '../../../core/logger/logger.service';
-import { QueueEvent, TransactionEvent, NFTEvent, EventType } from '../../../modules/queue/interfaces/queue.interface';
+import { QueueEvent, TransactionEvent, NFTEvent, LedgerEvent, EventType } from '../../../modules/queue/interfaces/queue.interface';
 
 /**
  * Consumes NFT transactions from RabbitMQ instead of direct subscriptions
@@ -30,6 +30,12 @@ export class TransactionConsumerService implements OnModuleInit {
       // Subscribe to NFT events specifically (for processed NFT activities)
       await this.eventConsumer.consumeNFTEvents(
         this.handleNFTEvent.bind(this),
+        { noAck: false }
+      );
+
+      // Subscribe to ledger events (for ledger close processing)
+      await this.eventConsumer.consumeLedgerEvents(
+        this.handleLedgerEvent.bind(this),
         { noAck: false }
       );
 
@@ -114,6 +120,41 @@ export class TransactionConsumerService implements OnModuleInit {
     }
   }
 
+  /**
+   * Handle ledger close events
+   */
+  private async handleLedgerEvent(
+    event: QueueEvent,
+    _message: amqplib.ConsumeMessage,
+  ): Promise<void> {
+    if (event.eventType !== EventType.LEDGER_CLOSED) {
+      this.logger.warn(`Unexpected event type: ${event.eventType}`);
+      return;
+    }
+
+    const ledgerEvent = event as LedgerEvent;
+    
+    try {
+      this.logger.debug(
+        `Processing ledger event from queue: ${ledgerEvent.data.ledgerIndex} (${ledgerEvent.data.ledgerHash})`,
+      );
+      
+      // Process the ledger close event
+      // This could include:
+      // - Updating ledger sync status
+      // - Triggering batch processing for missed transactions
+      // - Monitoring ledger progression
+      await this.processLedgerEvent(ledgerEvent);
+      
+    } catch (error) {
+      this.logger.error(
+        `Failed to process ledger event ${ledgerEvent.eventId}`,
+        error instanceof Error ? error.message : String(error),
+      );
+      throw error;
+    }
+  }
+
   private isNFTEvent(event: QueueEvent): boolean {
     return [
       EventType.NFT_MINTED,
@@ -132,5 +173,21 @@ export class TransactionConsumerService implements OnModuleInit {
     // - Updating analytics/statistics
     
     this.logger.debug(`Processed NFT event: ${nftEvent.eventType}`);
+  }
+
+  private async processLedgerEvent(ledgerEvent: LedgerEvent): Promise<void> {
+    // Process ledger close events
+    // This could include:
+    // - Updating ledger sync status in the database
+    // - Triggering any ledger-specific processing
+    // - Monitoring ledger progression for health checks
+    
+    this.logger.debug(
+      `Processed ledger close: ${ledgerEvent.data.ledgerIndex} with ${ledgerEvent.data.txnCount} transactions`
+    );
+    
+    // You could potentially call the transaction ingestion service to update ledger status
+    // For now, we'll just log it
+    // TODO: Consider adding ledger-specific business logic here
   }
 }
