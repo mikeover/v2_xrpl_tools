@@ -6,6 +6,7 @@ import { XRPLConnectionManagerService } from '../../../modules/xrpl-connection/s
 import { QueueHealthService } from '../../../modules/queue/services/queue-health.service';
 import { AlertNotificationService } from '../../alerts/services/alert-notification.service';
 import { NotificationProcessorService } from '../../notifications/services/notification-processor.service';
+import { RedisCacheService } from '../../../modules/redis/services/redis-cache.service';
 import { UserEntity } from '../../../database/entities/user.entity';
 import { NftActivityEntity } from '../../../database/entities/nft-activity.entity';
 import { NotificationEntity } from '../../../database/entities/notification.entity';
@@ -30,6 +31,7 @@ export class HealthCheckService {
     private readonly queueHealthService: QueueHealthService,
     private readonly alertNotificationService: AlertNotificationService,
     private readonly notificationProcessorService: NotificationProcessorService,
+    private readonly redisCacheService: RedisCacheService,
     @InjectRepository(UserEntity)
     private readonly userRepository: Repository<UserEntity>,
     @InjectRepository(NftActivityEntity)
@@ -48,6 +50,7 @@ export class HealthCheckService {
       databaseHealth,
       xrplHealth,
       queueHealth,
+      redisHealth,
       metadataHealth,
       alertHealth,
       notificationHealth,
@@ -55,6 +58,7 @@ export class HealthCheckService {
       this.checkDatabaseHealth(),
       this.checkXRPLConnectionHealth(),
       this.checkMessageQueueHealth(),
+      this.checkRedisHealth(),
       this.checkMetadataEnrichmentHealth(),
       this.checkAlertProcessingHealth(),
       this.checkNotificationHealth(),
@@ -64,6 +68,7 @@ export class HealthCheckService {
       database: this.resolveHealthResult(databaseHealth, 'Database'),
       xrplConnection: this.resolveHealthResult(xrplHealth, 'XRPL Connection'),
       messageQueue: this.resolveHealthResult(queueHealth, 'Message Queue'),
+      redis: this.resolveHealthResult(redisHealth, 'Redis Cache'),
       metadataEnrichment: this.resolveHealthResult(metadataHealth, 'Metadata Enrichment'),
       alertProcessing: this.resolveHealthResult(alertHealth, 'Alert Processing'),
       notifications: this.resolveHealthResult(notificationHealth, 'Notifications'),
@@ -285,6 +290,46 @@ export class HealthCheckService {
         status: 'unhealthy',
         timestamp: new Date(),
         error: error instanceof Error ? error.message : 'Queue check failed',
+      };
+    }
+  }
+
+  /**
+   * Check Redis cache health
+   */
+  private async checkRedisHealth(): Promise<HealthCheckResult> {
+    const start = Date.now();
+    try {
+      // Test Redis operations
+      const testKey = 'health:check:test';
+      const testValue = { timestamp: new Date().toISOString() };
+      
+      // Set
+      await this.redisCacheService.set(testKey, testValue, { ttl: 10 });
+      
+      // Get
+      const retrieved = await this.redisCacheService.get(testKey);
+      if (!retrieved) {
+        throw new Error('Failed to retrieve test value');
+      }
+      
+      // Delete
+      await this.redisCacheService.del(testKey);
+      
+      const stats = this.redisCacheService.getStats();
+      
+      return {
+        status: 'healthy',
+        timestamp: new Date(),
+        details: `Hit rate: ${(stats.hitRate * 100).toFixed(2)}%`,
+        latencyMs: Date.now() - start,
+      };
+    } catch (error) {
+      return {
+        status: 'unhealthy',
+        timestamp: new Date(),
+        error: error instanceof Error ? error.message : 'Redis check failed',
+        latencyMs: Date.now() - start,
       };
     }
   }

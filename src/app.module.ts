@@ -13,12 +13,14 @@ import { AlertsModule } from './features/alerts/alerts.module';
 import { NotificationsModule } from './features/notifications/notifications.module';
 import { HealthModule } from './features/health/health.module';
 import { ApiGatewayModule } from './features/api-gateway/api-gateway.module';
+import { RedisModule } from './modules/redis/redis.module';
 import { AppConfiguration } from './shared/config';
 
 @Module({
   imports: [
     CoreModule,
     SharedModule,
+    RedisModule.forRootAsync(),
     ThrottlerModule.forRootAsync({
       imports: [ConfigModule],
       inject: [ConfigService],

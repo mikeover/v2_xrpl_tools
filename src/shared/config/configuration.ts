@@ -16,6 +16,17 @@ export interface AppConfiguration {
     host: string;
     port: number;
     password?: string | undefined;
+    db?: number | undefined;
+    keyPrefix?: string | undefined;
+    ttl?: number | undefined;
+    maxRetriesPerRequest?: number | undefined;
+    cluster?: {
+      enabled: boolean;
+      nodes: Array<{
+        host: string;
+        port: number;
+      }>;
+    } | undefined;
   };
   xrpl: {
     nodes: Array<{
@@ -88,6 +99,28 @@ export const configuration = (): AppConfiguration => {
       host: process.env['REDIS_HOST'] || 'localhost',
       port: parseInt(process.env['REDIS_PORT'] || '6379', 10),
       password: process.env['REDIS_PASSWORD'],
+      db: process.env['REDIS_DB'] ? parseInt(process.env['REDIS_DB'], 10) : undefined,
+      keyPrefix: process.env['REDIS_KEY_PREFIX'] || 'xrpl:',
+      ttl: process.env['REDIS_TTL'] ? parseInt(process.env['REDIS_TTL'], 10) : undefined,
+      maxRetriesPerRequest: process.env['REDIS_MAX_RETRIES'] 
+        ? parseInt(process.env['REDIS_MAX_RETRIES'], 10) 
+        : undefined,
+      cluster: process.env['REDIS_CLUSTER_ENABLED'] === 'true'
+        ? {
+            enabled: true,
+            nodes: process.env['REDIS_CLUSTER_NODES']
+              ? process.env['REDIS_CLUSTER_NODES']
+                  .split(',')
+                  .map(node => {
+                    const [host, port] = node.split(':');
+                    return {
+                      host: host ? host.trim() : 'localhost',
+                      port: parseInt(port || '6379', 10),
+                    };
+                  })
+              : [],
+          }
+        : undefined,
     },
     xrpl: {
       nodes: process.env['XRPL_WSS_URLS']

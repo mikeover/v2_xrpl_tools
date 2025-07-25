@@ -24,7 +24,7 @@ export interface SystemHealth {
     database: ComponentHealth;
     xrplConnection: ComponentHealth;
     messageQueue: ComponentHealth;
-    redis?: ComponentHealth;
+    redis: ComponentHealth;
     metadataEnrichment: ComponentHealth;
     alertProcessing: ComponentHealth;
     notifications: ComponentHealth;
