@@ -11,6 +11,7 @@ import {
   NFTActivityType,
 } from '../interfaces/transaction.interface';
 import { TRANSACTION_CONSTANTS, TRANSACTION_ERRORS } from '../constants/transaction.constants';
+import { AlertNotificationService } from '../../alerts/services/alert-notification.service';
 
 @Injectable()
 export class TransactionBatchProcessorService {
@@ -25,6 +26,7 @@ export class TransactionBatchProcessorService {
     private readonly nftRepository: Repository<NftEntity>,
     @InjectRepository(CollectionEntity)
     private readonly collectionRepository: Repository<CollectionEntity>,
+    private readonly alertNotificationService: AlertNotificationService,
   ) {}
 
   async processBatch(batch: TransactionBatch): Promise<void> {
@@ -126,8 +128,20 @@ export class TransactionBatchProcessorService {
     }
 
     // Bulk insert activities
+    let savedActivities: NftActivityEntity[] = [];
     if (activities.length > 0) {
-      await queryRunner.manager.save(NftActivityEntity, activities);
+      savedActivities = await queryRunner.manager.save(NftActivityEntity, activities);
+    }
+
+    // After successful database commit, process alerts asynchronously
+    if (savedActivities.length > 0) {
+      // Process alerts in the background without blocking transaction processing
+      this.processAlertsAsync(savedActivities).catch(error => {
+        // Log but don't throw - alert failures shouldn't break transaction processing
+        this.logger.error(
+          `Alert processing failed for ${savedActivities.length} activities: ${error instanceof Error ? error.message : String(error)}`
+        );
+      });
     }
   }
 
@@ -294,6 +308,48 @@ export class TransactionBatchProcessorService {
     }
 
     return null;
+  }
+
+  /**
+   * Process alerts for NFT activities asynchronously
+   * This method runs in the background and doesn't block transaction processing
+   */
+  private async processAlertsAsync(activities: NftActivityEntity[]): Promise<void> {
+    try {
+      // Check if alert service is available
+      if (!this.alertNotificationService) {
+        this.logger.debug('AlertNotificationService not available, skipping alert processing');
+        return;
+      }
+
+      // Fetch full activity data with relations for alert processing
+      const activityIds = activities.map(a => a.id);
+      const activitiesWithRelations = await this.nftActivityRepository
+        .createQueryBuilder('activity')
+        .leftJoinAndSelect('activity.nft', 'nft')
+        .leftJoinAndSelect('nft.collection', 'collection')
+        .where('activity.id IN (:...ids)', { ids: activityIds })
+        .getMany();
+
+      if (activitiesWithRelations.length > 0) {
+        this.logger.debug(
+          `Processing ${activitiesWithRelations.length} activities for alert matching`
+        );
+
+        // Process alerts through the AlertNotificationService
+        await this.alertNotificationService.processActivityBatch(activitiesWithRelations);
+        
+        this.logger.debug(
+          `Successfully processed ${activitiesWithRelations.length} activities for alerts`
+        );
+      }
+    } catch (error) {
+      this.logger.error(
+        `Critical error in processAlertsAsync: ${error instanceof Error ? error.message : String(error)}`
+      );
+      // Re-throw so the catch in the caller can log it appropriately
+      throw error;
+    }
   }
 
   // Monitoring and stats methods

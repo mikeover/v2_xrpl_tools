@@ -14,6 +14,7 @@ import { LedgerSyncStatusEntity } from '../../database/entities/ledger-sync-stat
 import { CoreModule } from '../../core/core.module';
 import { XRPLConnectionModule } from '../../modules/xrpl-connection/xrpl-connection.module';
 import { MetadataModule } from '../metadata/metadata.module';
+import { AlertsModule } from '../alerts/alerts.module';
 
 @Module({
   imports: [
@@ -26,6 +27,7 @@ import { MetadataModule } from '../metadata/metadata.module';
     CoreModule,
     XRPLConnectionModule,
     MetadataModule,
+    AlertsModule,
   ],
   controllers: [TransactionIngestionController, EventClassifierController],
   providers: [
