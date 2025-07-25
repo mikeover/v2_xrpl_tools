@@ -23,7 +23,11 @@
     "migration:create": "npm run typeorm:cli -- migration:create",
     "migration:run": "npm run typeorm:cli -- migration:run",
     "migration:revert": "npm run typeorm:cli -- migration:revert",
-    "migration:show": "npm run typeorm:cli -- migration:show"
+    "migration:show": "npm run typeorm:cli -- migration:show",
+    "db:optimize": "ts-node src/database/cli/optimize-database.ts",
+    "db:analyze": "npm run db:optimize analyze",
+    "db:maintenance": "npm run db:optimize maintenance",
+    "db:index-usage": "npm run db:optimize index-usage"
   },
   "dependencies": {
     "@aws-sdk/client-s3": "^3.850.0",
