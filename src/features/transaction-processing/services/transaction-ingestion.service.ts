@@ -40,10 +40,19 @@ export class TransactionIngestionService implements OnModuleInit, OnModuleDestro
     // Get the last processed ledger from database
     await this.loadLastProcessedLedger();
     
-    // Start transaction ingestion
-    await this.startIngestion();
+    // Check if we should use direct subscriptions or queue-based processing
+    const useQueueConsumers = process.env['USE_QUEUE_CONSUMERS'] === 'true';
     
-    // Start batch processing timer
+    if (useQueueConsumers) {
+      this.logger.log('Queue-based processing enabled - skipping direct XRPL subscription');
+      this.logger.log('TransactionConsumerService will handle queue-based processing');
+    } else {
+      this.logger.log('Using direct XRPL subscription for transaction processing');
+      // Start transaction ingestion
+      await this.startIngestion();
+    }
+    
+    // Start batch processing timer regardless of ingestion method
     this.startBatchTimer();
   }
 
@@ -96,6 +105,36 @@ export class TransactionIngestionService implements OnModuleInit, OnModuleDestro
     
     await this.processBatch();
     this.logger.log('Stopped transaction ingestion');
+  }
+
+  /**
+   * Process a raw transaction from the queue (for queue-based architecture)
+   * This method is called by the TransactionConsumerService
+   */
+  async processRawTransaction(
+    transaction: any,
+    meta: any,
+    ledgerIndex: number,
+  ): Promise<void> {
+    try {
+      // Create a transaction message similar to what comes from XRPL WebSocket
+      const transactionMessage = {
+        transaction,
+        meta,
+        ledger_index: ledgerIndex,
+        validated: true,
+      };
+
+      // Process it through the existing pipeline
+      await this.handleTransaction(transactionMessage);
+      
+    } catch (error) {
+      this.logger.error(
+        `Failed to process raw transaction from queue`,
+        error instanceof Error ? error.message : String(error),
+      );
+      throw error;
+    }
   }
 
   private async handleTransaction(transactionMessage: any): Promise<void> {

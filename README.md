@@ -122,6 +122,9 @@ REDIS_TTL=3600              # Cache TTL in seconds
 RABBITMQ_PREFETCH_COUNT=10  # Queue consumer prefetch
 BATCH_SIZE=100              # Transaction batch size
 
+# Processing Mode (NEW!)
+USE_QUEUE_CONSUMERS=true    # Use queue-based processing (recommended for production)
+
 # XRPL Connection
 XRPL_RECONNECT_INTERVAL=5000     # ms between reconnection attempts
 XRPL_MAX_RECONNECT_ATTEMPTS=10   # Maximum reconnection attempts
@@ -243,6 +246,11 @@ Access system metrics at `GET /health/metrics` for:
    - Adjust `BATCH_SIZE` for transaction processing
    - Configure Redis memory limits
    - Check for memory leaks in logs
+
+5. **Choosing Processing Mode**
+   - `USE_QUEUE_CONSUMERS=false`: Direct XRPL subscription (simpler, good for development)
+   - `USE_QUEUE_CONSUMERS=true`: Queue-based processing (recommended for production/scaling)
+   - For mainnet with high volume, always use queue-based processing
 
 ### Logs
 

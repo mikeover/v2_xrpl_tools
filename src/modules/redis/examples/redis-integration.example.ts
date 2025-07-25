@@ -63,14 +63,16 @@ export class ExampleServiceWithCaching {
   /**
    * Example 4: Wrapping a function with caching
    */
-  getCollectionStats = this.cacheService.wrap(
-    (collectionId: string) => this.cacheService.buildKey(CacheKeys.NFT_COLLECTION, 'stats', collectionId),
-    async (collectionId: string) => {
-      // Expensive calculation
-      return this.calculateCollectionStats(collectionId);
-    },
-    { ttl: 3600 } // Cache for 1 hour
-  );
+  getCollectionStats = (collectionId: string) => {
+    return this.cacheService.wrap(
+      (collectionId: string) => this.cacheService.buildKey(CacheKeys.NFT_COLLECTION, 'stats', collectionId),
+      async (collectionId: string) => {
+        // Expensive calculation
+        return this.calculateCollectionStats(collectionId);
+      },
+      { ttl: 3600 } // Cache for 1 hour
+    )(collectionId);
+  };
 
   /**
    * Example 5: Distributed locking for concurrent operations
@@ -114,16 +116,16 @@ export class ExampleServiceWithCaching {
     return { id: nftId, name: 'Example NFT' };
   }
 
-  private async updateUserInDatabase(userId: string, data: any): Promise<void> {
+  private async updateUserInDatabase(_userId: string, _data: any): Promise<void> {
     // Database update logic
   }
 
-  private async calculateCollectionStats(collectionId: string): Promise<any> {
+  private async calculateCollectionStats(_collectionId: string): Promise<any> {
     // Complex calculation logic
     return { total: 100, volume: 1000000 };
   }
 
-  private async performExpensiveWork(resourceId: string): Promise<void> {
+  private async performExpensiveWork(_resourceId: string): Promise<void> {
     // Expensive operation logic
   }
 }
