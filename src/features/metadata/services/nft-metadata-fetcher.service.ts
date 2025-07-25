@@ -9,6 +9,10 @@ import {
   MetadataFetchResult,
   CachedMetadata,
 } from '../interfaces/nft-metadata.interface';
+import { NFTAttribute } from '../interfaces/nft-metadata.interface';
+import {
+  RawNFTMetadata,
+} from '../interfaces/raw-metadata.interface';
 
 @Injectable()
 export class NFTMetadataFetcherService {
@@ -178,22 +182,33 @@ export class NFTMetadataFetcherService {
     }
   }
 
-  private validateAndNormalizeMetadata(rawMetadata: any): NFTMetadata | null {
+  private validateAndNormalizeMetadata(rawMetadata: RawNFTMetadata): NFTMetadata | null {
     if (!rawMetadata || typeof rawMetadata !== 'object') {
       return null;
     }
 
     // Normalize the metadata to our standard format
-    const metadata: NFTMetadata = {
-      name: rawMetadata.name || rawMetadata.title,
-      description: rawMetadata.description,
-      image: rawMetadata.image || rawMetadata.image_url,
-      external_url: rawMetadata.external_url || rawMetadata.external_link,
-      animation_url: rawMetadata.animation_url,
-      youtube_url: rawMetadata.youtube_url,
-      attributes: this.normalizeAttributes(rawMetadata.attributes || rawMetadata.traits),
-      properties: rawMetadata.properties,
-    };
+    const metadata: NFTMetadata = {};
+    
+    // Add properties only if they exist
+    const name = rawMetadata.name || rawMetadata['title'];
+    if (name) metadata.name = name as string;
+    
+    if (rawMetadata.description) metadata.description = rawMetadata.description as string;
+    
+    const image = rawMetadata.image || rawMetadata.image_url;
+    if (image) metadata.image = image as string;
+    
+    const external_url = rawMetadata.external_url || rawMetadata.external_link;
+    if (external_url) metadata.external_url = external_url as string;
+    
+    if (rawMetadata.animation_url) metadata.animation_url = rawMetadata.animation_url as string;
+    if (rawMetadata.youtube_url) metadata.youtube_url = rawMetadata.youtube_url as string;
+    
+    const attributes = this.normalizeAttributes(rawMetadata.attributes || rawMetadata.traits);
+    if (attributes.length > 0) metadata.attributes = attributes;
+    
+    if (rawMetadata.properties) metadata.properties = rawMetadata.properties as Record<string, any>;
 
     // Include any other fields
     Object.keys(rawMetadata).forEach((key) => {
@@ -205,16 +220,36 @@ export class NFTMetadataFetcherService {
     return metadata;
   }
 
-  private normalizeAttributes(attributes: any): any[] {
+  private normalizeAttributes(attributes: RawNFTMetadata['attributes']): NFTAttribute[] {
     if (!Array.isArray(attributes)) {
       return [];
     }
 
-    return attributes.map((attr) => ({
-      trait_type: attr.trait_type || attr.type || attr.name,
-      value: attr.value,
-      display_type: attr.display_type,
-    })).filter((attr) => attr.trait_type && attr.value !== undefined);
+    return attributes
+      .map((attr) => {
+        const trait_type = attr.trait_type || attr.type || attr.name;
+        const value = attr.value;
+        
+        // Only include if we have valid trait_type and value
+        if (!trait_type || value === undefined) {
+          return null;
+        }
+        
+        // Convert boolean values to string for NFTAttribute compatibility
+        const normalizedValue = typeof value === 'boolean' ? String(value) : value;
+        
+        // Only include string or number values
+        if (typeof normalizedValue !== 'string' && typeof normalizedValue !== 'number') {
+          return null;
+        }
+        
+        return {
+          trait_type: String(trait_type),
+          value: normalizedValue,
+          display_type: attr.display_type ? String(attr.display_type) : undefined,
+        };
+      })
+      .filter((attr) => attr !== null) as NFTAttribute[];
   }
 
   private decodeXRPLUri(uri: string): string {
@@ -254,7 +289,7 @@ export class NFTMetadataFetcherService {
         return cached;
       }
     } catch (error) {
-      if ((error as any).name !== 'NoSuchKey') {
+      if ((error as { name?: string }).name !== 'NoSuchKey') {
         this.logger.error(`Error reading cached metadata: ${error instanceof Error ? error.message : String(error)}`);
       }
     }

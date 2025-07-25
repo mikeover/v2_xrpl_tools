@@ -191,26 +191,30 @@ export class NotificationProcessorService {
         id: activity.nft.id,
         nftId: activity.nft.nftId,
         ownerAddress: activity.nft.ownerAddress,
-        metadata: activity.nft.metadata,
       };
+      
+      // Add metadata only if it exists
+      if (activity.nft.metadata) {
+        activityData.nft.metadata = activity.nft.metadata;
+      }
 
       // Add optional NFT properties
-      if (activity.nft.imageUrl) {
+      if (activity.nft.imageUrl && activityData.nft) {
         activityData.nft.imageUrl = activity.nft.imageUrl;
       }
-      if (activity.nft.imageS3Url) {
+      if (activity.nft.imageS3Url && activityData.nft) {
         activityData.nft.imageS3Url = activity.nft.imageS3Url;
       }
 
       // Include collection data if available
-      if (activity.nft.collection) {
+      if (activity.nft.collection && activityData.nft) {
         activityData.nft.collection = {
           id: activity.nft.collection.id,
           issuerAddress: activity.nft.collection.issuerAddress,
           taxon: activity.nft.collection.taxon,
         };
 
-        if (activity.nft.collection.name) {
+        if (activity.nft.collection.name && activityData.nft.collection) {
           activityData.nft.collection.name = activity.nft.collection.name;
         }
       }
@@ -219,7 +223,7 @@ export class NotificationProcessorService {
     // Get notification channel configuration
     const notificationChannels = alertConfig.notificationChannels || [];
     const channelConfig = notificationChannels['find'](
-      (ch: any) => ch.type === notification.channel
+      (ch: { type: string; enabled: boolean }) => ch.type === notification.channel
     );
 
     if (!channelConfig) {

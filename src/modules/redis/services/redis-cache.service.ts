@@ -3,6 +3,11 @@ import { CACHE_MANAGER } from '@nestjs/cache-manager';
 import { Cache } from 'cache-manager';
 import { LoggerService } from '../../../core/logger/logger.service';
 import { CacheOptions, CacheStats, CacheKeys } from '../interfaces/redis.interface';
+import {
+  CachedNFTMetadata,
+  CachedTransactionData,
+  CachedAlertConfig,
+} from '../interfaces/cache.interface';
 
 @Injectable()
 export class RedisCacheService implements OnModuleInit, OnModuleDestroy {
@@ -147,11 +152,11 @@ export class RedisCacheService implements OnModuleInit, OnModuleDestroy {
    * Wrap a function with caching
    */
   wrap<T>(
-    keyGenerator: (...args: any[]) => string,
-    fn: (...args: any[]) => Promise<T>,
+    keyGenerator: (...args: unknown[]) => string,
+    fn: (...args: unknown[]) => Promise<T>,
     options: CacheOptions = {},
-  ): (...args: any[]) => Promise<T> {
-    return async (...args: any[]): Promise<T> => {
+  ): (...args: unknown[]) => Promise<T> {
+    return async (...args: unknown[]): Promise<T> => {
       const key = keyGenerator(...args);
       return this.getOrSet(key, () => fn(...args), options);
     };
@@ -205,7 +210,7 @@ export class RedisCacheService implements OnModuleInit, OnModuleDestroy {
    */
   async cacheNftMetadata(
     nftId: string,
-    metadata: any,
+    metadata: CachedNFTMetadata,
     ttl = 86400, // 24 hours default
   ): Promise<void> {
     const key = this.buildKey(CacheKeys.NFT_METADATA, nftId);
@@ -215,7 +220,7 @@ export class RedisCacheService implements OnModuleInit, OnModuleDestroy {
   /**
    * Get cached NFT metadata
    */
-  async getNftMetadata(nftId: string): Promise<any | null> {
+  async getNftMetadata(nftId: string): Promise<CachedNFTMetadata | null> {
     const key = this.buildKey(CacheKeys.NFT_METADATA, nftId);
     return this.get(key);
   }
@@ -223,7 +228,7 @@ export class RedisCacheService implements OnModuleInit, OnModuleDestroy {
   /**
    * Cache user alerts
    */
-  async cacheUserAlerts(userId: string, alerts: any[], ttl = 300): Promise<void> {
+  async cacheUserAlerts(userId: string, alerts: CachedAlertConfig[], ttl = 300): Promise<void> {
     const key = this.buildKey(CacheKeys.USER_ALERTS, userId);
     await this.set(key, alerts, { ttl });
   }
@@ -231,9 +236,9 @@ export class RedisCacheService implements OnModuleInit, OnModuleDestroy {
   /**
    * Get cached user alerts
    */
-  async getUserAlerts(userId: string): Promise<any[] | null> {
+  async getUserAlerts(userId: string): Promise<CachedAlertConfig[] | null> {
     const key = this.buildKey(CacheKeys.USER_ALERTS, userId);
-    return this.get<any[]>(key);
+    return this.get<CachedAlertConfig[]>(key);
   }
 
   /**
@@ -249,7 +254,7 @@ export class RedisCacheService implements OnModuleInit, OnModuleDestroy {
    */
   async cacheTransaction(
     txHash: string,
-    txData: any,
+    txData: CachedTransactionData,
     ttl = 3600, // 1 hour default
   ): Promise<void> {
     const key = this.buildKey(CacheKeys.TRANSACTION, txHash);
@@ -259,7 +264,7 @@ export class RedisCacheService implements OnModuleInit, OnModuleDestroy {
   /**
    * Get cached transaction
    */
-  async getTransaction(txHash: string): Promise<any | null> {
+  async getTransaction(txHash: string): Promise<CachedTransactionData | null> {
     const key = this.buildKey(CacheKeys.TRANSACTION, txHash);
     return this.get(key);
   }

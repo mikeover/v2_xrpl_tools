@@ -7,6 +7,7 @@ import { Repository } from 'typeorm';
 import { CollectionEntity } from '../../../database/entities/collection.entity';
 import { AlertConfigEntity } from '../../../database/entities/alert-config.entity';
 import { CacheKeys } from '../interfaces/redis.interface';
+import { CachedAlertConfig, CachedNotificationChannels } from '../interfaces/cache.interface';
 
 @Injectable()
 export class CacheWarmingService implements OnModuleInit {
@@ -101,7 +102,7 @@ export class CacheWarmingService implements OnModuleInit {
         .getMany();
 
       // Group alerts by user
-      const alertsByUser = new Map<string, any[]>();
+      const alertsByUser = new Map<string, AlertConfigEntity[]>();
       for (const alert of alerts) {
         const userId = alert.user.id;
         if (!alertsByUser.has(userId)) {
@@ -112,7 +113,8 @@ export class CacheWarmingService implements OnModuleInit {
 
       // Cache alerts for each user
       for (const [userId, userAlerts] of alertsByUser) {
-        await this.cacheService.cacheUserAlerts(userId, userAlerts, 300); // 5 minutes
+        const cachedAlerts = userAlerts.map(alert => this.convertToCachedAlertConfig(alert));
+        await this.cacheService.cacheUserAlerts(userId, cachedAlerts, 300); // 5 minutes
       }
 
       this.logger.log(`Warmed alerts for ${alertsByUser.size} users`);
@@ -145,6 +147,66 @@ export class CacheWarmingService implements OnModuleInit {
     } catch (error) {
       this.logger.error('Failed to warm system config', error instanceof Error ? error.message : String(error));
     }
+  }
+
+  /**
+   * Convert AlertConfigEntity to CachedAlertConfig
+   */
+  private convertToCachedAlertConfig(alert: AlertConfigEntity): CachedAlertConfig {
+    const config: CachedAlertConfig = {
+      id: alert.id,
+      name: alert.name,
+      activityTypes: alert.activityTypes,
+      notificationChannels: this.convertNotificationChannels(alert.notificationChannels),
+      isActive: alert.isActive,
+      created_at: alert.createdAt.toISOString(),
+      updated_at: alert.updatedAt.toISOString(),
+    };
+    
+    // Add optional properties only if they exist
+    if (alert.collectionId) config.collectionId = alert.collectionId;
+    if (alert.minPriceDrops) config.minPriceDrops = alert.minPriceDrops;
+    if (alert.maxPriceDrops) config.maxPriceDrops = alert.maxPriceDrops;
+    
+    if (alert.traitFilters) {
+      config.traitFilters = (alert.traitFilters as any[]).map((filter: any) => ({
+        traitType: filter.traitType,
+        operator: filter.operator,
+        value: filter.value,
+      }));
+    }
+    
+    return config;
+  }
+
+  /**
+   * Convert notification channels to cached format
+   */
+  private convertNotificationChannels(channels: any): CachedNotificationChannels {
+    if (!channels || !Array.isArray(channels)) {
+      return {};
+    }
+
+    const result: CachedNotificationChannels = {};
+
+    for (const channel of channels) {
+      if (channel.type === 'email' && channel.enabled) {
+        result.email = { enabled: true };
+      } else if (channel.type === 'discord' && channel.enabled) {
+        result.discord = { 
+          enabled: true,
+          webhookUrl: channel.config?.webhookUrl,
+        };
+      } else if (channel.type === 'webhook' && channel.enabled) {
+        result.webhook = {
+          enabled: true,
+          url: channel.config?.url,
+          headers: channel.config?.headers,
+        };
+      }
+    }
+
+    return result;
   }
 
   /**

@@ -65,10 +65,14 @@ export class ExampleServiceWithCaching {
    */
   getCollectionStats = (collectionId: string) => {
     return this.cacheService.wrap(
-      (collectionId: string) => this.cacheService.buildKey(CacheKeys.NFT_COLLECTION, 'stats', collectionId),
-      async (collectionId: string) => {
+      (...args: unknown[]) => {
+        const id = args[0] as string;
+        return this.cacheService.buildKey(CacheKeys.NFT_COLLECTION, 'stats', id);
+      },
+      async (...args: unknown[]) => {
+        const id = args[0] as string;
         // Expensive calculation
-        return this.calculateCollectionStats(collectionId);
+        return this.calculateCollectionStats(id);
       },
       { ttl: 3600 } // Cache for 1 hour
     )(collectionId);
