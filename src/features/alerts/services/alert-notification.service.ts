@@ -4,16 +4,19 @@ import { Repository } from 'typeorm';
 import { AlertMatchingService, NFTActivity } from './alert-matching.service';
 import { LoggerService } from '../../../core/logger/logger.service';
 import { NftActivityEntity } from '../../../database/entities/nft-activity.entity';
-import { NotificationEntity } from '../../../database/entities/notification.entity';
+import { AlertConfigEntity } from '../../../database/entities/alert-config.entity';
+import { NotificationProcessorService } from '../../notifications/services/notification-processor.service';
 import { AlertMatchResult } from '../interfaces/alert.interface';
+import { NotificationChannel } from '../../notifications/interfaces/notification.interface';
 
 @Injectable()
 export class AlertNotificationService {
   constructor(
     private readonly alertMatchingService: AlertMatchingService,
     private readonly logger: LoggerService,
-    @InjectRepository(NotificationEntity)
-    private readonly notificationRepository: Repository<NotificationEntity>,
+    private readonly notificationProcessor: NotificationProcessorService,
+    @InjectRepository(AlertConfigEntity)
+    private readonly alertConfigRepository: Repository<AlertConfigEntity>,
   ) {}
 
   /**
@@ -149,53 +152,47 @@ export class AlertNotificationService {
   }
 
   /**
-   * Generate a notification record for a matched alert
+   * Generate notifications for a matched alert
    */
   private async generateNotification(
     activity: NftActivityEntity,
     matchResult: AlertMatchResult
   ): Promise<void> {
     try {
-      // For now, we'll just log the notification until we implement the full notification system
-      // Later we'll need to:
-      // 1. Get the alert config to determine user ID and notification channels
-      // 2. Create notification records for each channel
-      // 3. Queue for actual delivery (Discord, Email, Webhook)
-      
       this.logger.log(
         `🚨 ALERT MATCHED: Activity ${activity.id} (${activity.activityType}) matched alert ${matchResult.alertConfigId}. ` +
         `Transaction: ${activity.transactionHash}. ` +
         `Reasons: ${matchResult.reasons?.join(', ') || 'No reasons provided'}`
       );
 
-      // Log additional context if available
-      if (activity.nft?.collection?.name) {
-        this.logger.log(`Collection: ${activity.nft.collection.name}`);
-      }
-      if (activity.priceDrops) {
-        this.logger.log(`Price: ${activity.priceDrops} drops`);
+      // Get the alert configuration with notification channels
+      const alertConfig = await this.alertConfigRepository.findOne({
+        where: { id: matchResult.alertConfigId },
+        select: ['id', 'userId', 'notificationChannels'],
+      });
+
+      if (!alertConfig) {
+        this.logger.error(`Alert configuration ${matchResult.alertConfigId} not found`);
+        return;
       }
 
-      // TODO: Implement full notification system:
-      // 
-      // 1. Get alert configuration with user and notification channels
-      // const alertConfig = await this.alertConfigRepository.findById(matchResult.alertConfigId);
-      // 
-      // 2. For each enabled notification channel, create notification record:
-      // for (const channel of alertConfig.notificationChannels.filter(c => c.enabled)) {
-      //   const notification = this.notificationRepository.create({
-      //     userId: alertConfig.userId,
-      //     alertConfigId: matchResult.alertConfigId,
-      //     activityId: activity.id,
-      //     channel: channel.type,
-      //     status: 'pending',
-      //     scheduledAt: new Date(),
-      //   });
-      //   await this.notificationRepository.save(notification);
-      // }
-      //
-      // 3. Queue for delivery via notification service
-      
+      if (!alertConfig.notificationChannels || alertConfig.notificationChannels['length'] === 0) {
+        this.logger.debug(`No notification channels configured for alert ${matchResult.alertConfigId}`);
+        return;
+      }
+
+      // Process notifications through the notification processor
+      await this.notificationProcessor.processActivityNotifications(
+        alertConfig.userId,
+        matchResult.alertConfigId,
+        activity.id,
+        alertConfig.notificationChannels as NotificationChannel[]
+      );
+
+      this.logger.log(
+        `✅ Queued notifications for alert ${matchResult.alertConfigId} via ${alertConfig.notificationChannels['length']} channels`
+      );
+
     } catch (error) {
       this.logger.error(
         `Failed to generate notification for activity ${activity.id} and alert ${matchResult.alertConfigId}: ${error instanceof Error ? error.message : String(error)}`
@@ -203,6 +200,68 @@ export class AlertNotificationService {
       throw error;
     }
   }
+
+  /**
+   * Convert NftActivityEntity to notification data format
+   * Currently unused but kept for future use
+   */
+  /*
+  private async convertToNotificationData(activity: NftActivityEntity): Promise<NFTActivityNotificationData> {
+    const notificationData: NFTActivityNotificationData = {
+      activityType: activity.activityType,
+      transactionHash: activity.transactionHash,
+      ledgerIndex: parseInt(activity.ledgerIndex),
+      timestamp: activity.timestamp,
+    };
+
+    // Add optional properties
+    if (activity.fromAddress) {
+      notificationData.fromAddress = activity.fromAddress;
+    }
+    if (activity.toAddress) {
+      notificationData.toAddress = activity.toAddress;
+    }
+    if (activity.priceDrops) {
+      notificationData.priceDrops = activity.priceDrops;
+    }
+    if (activity.currency) {
+      notificationData.currency = activity.currency;
+    }
+    if (activity.issuer) {
+      notificationData.issuer = activity.issuer;
+    }
+
+    // Include NFT data if available
+    if (activity.nft) {
+      notificationData.nft = {
+        id: activity.nft.id,
+        nftId: activity.nft.nftId,
+        ownerAddress: activity.nft.ownerAddress,
+        metadata: activity.nft.metadata,
+      };
+
+      // Add optional NFT properties
+      if (activity.nft.imageUrl) {
+        notificationData.nft.imageUrl = activity.nft.imageUrl;
+      }
+
+      // Include collection data if available
+      if (activity.nft.collection) {
+        notificationData.nft.collection = {
+          id: activity.nft.collection.id,
+          issuerAddress: activity.nft.collection.issuerAddress,
+          taxon: activity.nft.collection.taxon,
+        };
+
+        if (activity.nft.collection.name) {
+          notificationData.nft.collection.name = activity.nft.collection.name;
+        }
+      }
+    }
+
+    return notificationData;
+  }
+  */
 
   /**
    * Get statistics about alert processing
@@ -248,7 +307,7 @@ export class AlertNotificationService {
 
     try {
       // Check database connectivity
-      await this.notificationRepository.count();
+      await this.alertConfigRepository.count();
     } catch (error) {
       issues.push(`Database connectivity error: ${error instanceof Error ? error.message : String(error)}`);
     }
