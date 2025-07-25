@@ -5,6 +5,7 @@ import { DocumentBuilder, SwaggerModule } from '@nestjs/swagger';
 import { AppModule } from './app.module';
 import { AppConfiguration } from './shared/config';
 import { LoggerService } from './core';
+import { getCorsConfig } from './features/api-gateway/config/cors.config';
 
 async function bootstrap(): Promise<void> {
   const app = await NestFactory.create(AppModule, {
@@ -19,6 +20,9 @@ async function bootstrap(): Promise<void> {
   const appConfig = configService.get<AppConfiguration['app']>('app');
   const port = appConfig?.port ?? 3110;
   const env = appConfig?.env ?? 'development';
+
+  // Enable CORS
+  app.enableCors(getCorsConfig(configService));
 
   // Setup Swagger API documentation
   const config = new DocumentBuilder()
@@ -45,9 +49,14 @@ async function bootstrap(): Promise<void> {
       },
       'API-key'
     )
+    .addTag('API Gateway', 'API information and system status')
+    .addTag('API Documentation', 'Extended API documentation and examples')
     .addTag('Authentication', 'User registration, login, and profile management')
     .addTag('Alerts', 'NFT alert configuration and management')
+    .addTag('Notifications', 'Notification history and management')
     .addTag('Health', 'System health and monitoring endpoints')
+    .addServer('http://localhost:3110', 'Local Development')
+    .addServer('https://api.xrplmonitor.com', 'Production')
     .build();
 
   const document = SwaggerModule.createDocument(app, config);

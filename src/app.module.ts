@@ -12,6 +12,7 @@ import { UserManagementModule } from './features/user-management/user-management
 import { AlertsModule } from './features/alerts/alerts.module';
 import { NotificationsModule } from './features/notifications/notifications.module';
 import { HealthModule } from './features/health/health.module';
+import { ApiGatewayModule } from './features/api-gateway/api-gateway.module';
 import { AppConfiguration } from './shared/config';
 
 @Module({
@@ -39,6 +40,7 @@ import { AppConfiguration } from './shared/config';
     AlertsModule,
     NotificationsModule,
     HealthModule,
+    ApiGatewayModule,
   ],
   controllers: [AppController],
   providers: [AppService],
