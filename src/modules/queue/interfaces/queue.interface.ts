@@ -1,12 +1,14 @@
+import { Transaction, TransactionMetadata } from 'xrpl';
+
 export interface QueueOptions {
   durable?: boolean;
-  arguments?: Record<string, any>;
+  arguments?: Record<string, unknown>;
 }
 
 export interface ExchangeOptions {
   durable?: boolean;
   autoDelete?: boolean;
-  arguments?: Record<string, any>;
+  arguments?: Record<string, unknown>;
 }
 
 export interface PublishOptions {
@@ -17,14 +19,14 @@ export interface PublishOptions {
   timestamp?: number;
   correlationId?: string;
   replyTo?: string;
-  headers?: Record<string, any>;
+  headers?: Record<string, unknown>;
 }
 
 export interface ConsumeOptions {
   noAck?: boolean;
   exclusive?: boolean;
   priority?: number;
-  arguments?: Record<string, any>;
+  arguments?: Record<string, unknown>;
 }
 
 export interface QueueConfig {
@@ -68,7 +70,7 @@ export interface BaseEvent {
   eventType: EventType;
   timestamp: Date;
   correlationId?: string;
-  metadata?: Record<string, any>;
+  metadata?: Record<string, unknown>;
 }
 
 export interface LedgerEvent extends BaseEvent {
@@ -85,8 +87,8 @@ export interface LedgerEvent extends BaseEvent {
 export interface TransactionEvent extends BaseEvent {
   eventType: EventType.TRANSACTION_VALIDATED;
   data: {
-    transaction: any;
-    meta: any;
+    transaction: Transaction;
+    meta: TransactionMetadata;
     ledgerIndex: number;
     ledgerHash: string;
     validated: boolean;
@@ -110,7 +112,7 @@ export interface NFTEvent extends BaseEvent {
     currency?: string;
     transactionHash: string;
     ledgerIndex: number;
-    metadata?: any;
+    metadata?: Record<string, unknown>;
   };
 }
 

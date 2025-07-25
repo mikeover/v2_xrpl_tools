@@ -361,7 +361,7 @@ export class XRPLConnectionManagerService
   private getOrCreateCircuitBreaker(url: string): CircuitBreaker {
     let breaker = this.circuitBreakers.get(url);
     if (!breaker) {
-      breaker = new CircuitBreaker(async (fn: () => Promise<any>) => fn(), {
+      breaker = new CircuitBreaker(async (fn: () => Promise<void>) => fn(), {
         timeout: XRPL_CONSTANTS.CIRCUIT_BREAKER_TIMEOUT,
         errorThresholdPercentage: XRPL_CONSTANTS.CIRCUIT_BREAKER_THRESHOLD,
         resetTimeout: XRPL_CONSTANTS.CIRCUIT_BREAKER_RESET_TIMEOUT,
@@ -380,13 +380,26 @@ export class XRPLConnectionManagerService
     return breaker;
   }
 
-  private handleLedgerClosed(ledger: any): void {
+  private handleLedgerClosed(ledger: unknown): void {
+    // Validate the ledger data structure
+    const ledgerData = ledger as any; // Temporary cast for property access
+    
+    if (!ledgerData || typeof ledgerData !== 'object') {
+      this.logger.error('Received invalid ledger data: not an object');
+      return;
+    }
+
+    if (typeof ledgerData.ledger_index !== 'number' || typeof ledgerData.ledger_hash !== 'string') {
+      this.logger.error('Received invalid ledger data: missing required fields');
+      return;
+    }
+
     const ledgerMessage: LedgerStreamMessage = {
-      ledgerHash: ledger.ledger_hash,
-      ledgerIndex: ledger.ledger_index,
-      ledgerTime: ledger.ledger_time,
-      txnCount: ledger.txn_count || 0,
-      validatedLedgerIndex: ledger.validated_ledgers?.split('-')[1] || ledger.ledger_index,
+      ledgerHash: ledgerData.ledger_hash,
+      ledgerIndex: ledgerData.ledger_index,
+      ledgerTime: ledgerData.ledger_time || Date.now(),
+      txnCount: ledgerData.txn_count || 0,
+      validatedLedgerIndex: ledgerData.validated_ledgers?.split('-')?.[1] || ledgerData.ledger_index,
     };
 
     // Check for gaps
@@ -434,16 +447,33 @@ export class XRPLConnectionManagerService
     }
   }
 
-  private handleTransaction(tx: any): void {
+  private handleTransaction(tx: unknown): void {
+    // Validate the transaction data structure
+    const txData = tx as any; // Temporary cast for property access
+    
+    if (!txData || typeof txData !== 'object') {
+      this.logger.error('Received invalid transaction data: not an object');
+      return;
+    }
+
+    // Extract transaction and metadata with fallbacks
+    const transaction = txData.transaction || txData;
+    const meta = txData.meta || txData.metaData;
+
+    if (!transaction || typeof transaction !== 'object') {
+      this.logger.error('Received invalid transaction: missing transaction object');
+      return;
+    }
+
     const transactionMessage: TransactionStreamMessage = {
-      transaction: tx.transaction || tx,
-      meta: tx.meta || tx.metaData,
-      engine_result: tx.engine_result || 'tesSUCCESS',
-      engine_result_code: tx.engine_result_code || 0,
-      engine_result_message: tx.engine_result_message || '',
-      ledger_hash: tx.ledger_hash || '',
-      ledger_index: tx.ledger_index || 0,
-      validated: tx.validated !== false,
+      transaction,
+      meta: meta || {},
+      engine_result: txData.engine_result || 'tesSUCCESS',
+      engine_result_code: txData.engine_result_code || 0,
+      engine_result_message: txData.engine_result_message || '',
+      ledger_hash: txData.ledger_hash || '',
+      ledger_index: txData.ledger_index || 0,
+      validated: txData.validated !== false,
     };
 
     // Publish to message queue
@@ -515,7 +545,7 @@ export class XRPLConnectionManagerService
           command: 'ping',
         });
 
-        if ((response.result as any)?.status === 'success') {
+        if ((response.result as { status?: string })?.status === 'success') {
           node.isHealthy = true;
           node.consecutiveFailures = 0;
         } else {

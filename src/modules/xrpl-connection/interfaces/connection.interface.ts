@@ -1,4 +1,8 @@
 import { Client } from 'xrpl';
+import { 
+  XRPLTransactionStreamMessage, 
+  XRPLLedgerStreamMessage 
+} from '../../../shared/types/xrpl-stream.types';
 
 export interface XRPLNode {
   url: string;
@@ -27,24 +31,9 @@ export interface LedgerGap {
   detectedAt: Date;
 }
 
-export interface LedgerStreamMessage {
-  ledgerHash: string;
-  ledgerIndex: number;
-  ledgerTime: number;
-  txnCount: number;
-  validatedLedgerIndex: number;
-}
+export interface LedgerStreamMessage extends XRPLLedgerStreamMessage {}
 
-export interface TransactionStreamMessage {
-  transaction: any;
-  meta: any;
-  engine_result: string;
-  engine_result_code: number;
-  engine_result_message: string;
-  ledger_hash: string;
-  ledger_index: number;
-  validated: boolean;
-}
+export interface TransactionStreamMessage extends XRPLTransactionStreamMessage {}
 
 export type LedgerCallback = (ledger: LedgerStreamMessage) => void;
 export type TransactionCallback = (transaction: TransactionStreamMessage) => void;

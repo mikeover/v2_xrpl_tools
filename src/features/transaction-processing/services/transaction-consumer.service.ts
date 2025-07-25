@@ -65,7 +65,7 @@ export class TransactionConsumerService implements OnModuleInit {
     
     try {
       this.logger.debug(
-        `Processing transaction event from queue: ${transactionEvent.data.transaction.hash || 'unknown'}`,
+        `Processing transaction event from queue: ${transactionEvent.data.transaction['hash'] || 'unknown'}`,
       );
       
       // Process the raw transaction through the existing pipeline

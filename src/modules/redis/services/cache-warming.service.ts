@@ -66,11 +66,11 @@ export class CacheWarmingService implements OnModuleInit {
    */
   private async warmPopularCollections(): Promise<void> {
     try {
-      // Get top 100 collections by activity
+      // Get top 100 collections by activity (ordered by created_at since total_volume doesn't exist)
       const collections = await this.collectionRepository
         .createQueryBuilder('collection')
         .leftJoinAndSelect('collection.nfts', 'nfts')
-        .orderBy('collection.total_volume', 'DESC')
+        .orderBy('collection.created_at', 'DESC')
         .limit(100)
         .getMany();
 
@@ -96,8 +96,7 @@ export class CacheWarmingService implements OnModuleInit {
       // Get all active alerts
       const alerts = await this.alertConfigRepository
         .createQueryBuilder('alert')
-        .where('alert.enabled = :enabled', { enabled: true })
-        .andWhere('alert.deleted_at IS NULL')
+        .where('alert.is_active = :isActive', { isActive: true })
         .leftJoinAndSelect('alert.user', 'user')
         .getMany();
 

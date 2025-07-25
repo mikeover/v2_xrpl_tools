@@ -28,7 +28,7 @@ export class BaseEventDto {
 
   @IsOptional()
   @IsObject()
-  metadata?: Record<string, any>;
+  metadata?: Record<string, unknown>;
 }
 
 export class LedgerDataDto {
@@ -59,10 +59,10 @@ export class LedgerEventDto extends BaseEventDto {
 
 export class TransactionDataDto {
   @IsObject()
-  transaction!: any;
+  transaction!: object;
 
   @IsObject()
-  meta!: any;
+  meta!: object;
 
   @IsNumber()
   ledgerIndex!: number;
@@ -119,7 +119,7 @@ export class NFTDataDto {
 
   @IsOptional()
   @IsObject()
-  metadata?: any;
+  metadata?: Record<string, unknown>;
 }
 
 export class NFTEventDto extends BaseEventDto {

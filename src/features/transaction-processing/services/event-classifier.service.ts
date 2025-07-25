@@ -6,6 +6,10 @@ import {
   NFT_TRANSACTION_TYPES,
   NFTTransactionType,
 } from '../interfaces/transaction.interface';
+import { 
+  XRPLTransactionStreamMessage, 
+  isTransactionStreamMessage 
+} from '../../../shared/types/xrpl-stream.types';
 
 export interface ClassificationResult {
   activityType: NFTActivityType;
@@ -50,7 +54,7 @@ export class EventClassifierService {
   ) {}
 
   async classifyTransaction(
-    transactionMessage: any,
+    transactionMessage: XRPLTransactionStreamMessage | unknown,
     rules: Partial<ClassificationRules> = {},
   ): Promise<ClassificationResult | null> {
     const effectiveRules = { ...this.defaultRules, ...rules };
@@ -66,7 +70,7 @@ export class EventClassifierService {
           isNFTRelated: false,
           dataQuality: this.assessDataQuality(transactionMessage, false),
           metadata: {
-            transactionType: transactionMessage.transaction?.TransactionType || 'unknown',
+            transactionType: (transactionMessage as any)?.transaction?.TransactionType || 'unknown',
             primaryIndicators: [],
             secondaryIndicators: [],
             anomalies: ['not_nft_related'],
@@ -120,7 +124,7 @@ export class EventClassifierService {
   }
 
   async classifyBatch(
-    transactions: any[],
+    transactions: Array<XRPLTransactionStreamMessage | unknown>,
     rules: Partial<ClassificationRules> = {},
   ): Promise<Array<ClassificationResult | null>> {
     const results = await Promise.allSettled(
@@ -132,8 +136,13 @@ export class EventClassifierService {
     );
   }
 
-  private assessNFTRelevance(transactionMessage: any): boolean {
-    const tx = transactionMessage.transaction || transactionMessage;
+  private assessNFTRelevance(transactionMessage: XRPLTransactionStreamMessage | unknown): boolean {
+    // Validate and extract transaction data
+    const txData = isTransactionStreamMessage(transactionMessage) 
+      ? transactionMessage 
+      : (transactionMessage as any);
+    
+    const tx = txData?.transaction || txData;
     
     // Direct NFT transaction types
     if (NFT_TRANSACTION_TYPES.includes(tx.TransactionType as NFTTransactionType)) {
@@ -141,9 +150,9 @@ export class EventClassifierService {
     }
 
     // Check for NFT-related metadata in other transaction types
-    if (tx.TransactionType === 'Payment') {
+    if (tx?.TransactionType === 'Payment') {
       // Look for NFT transfers in metadata
-      const meta = transactionMessage.meta || transactionMessage.metaData;
+      const meta = txData?.meta || txData?.metaData;
       if (meta?.AffectedNodes) {
         return meta.AffectedNodes.some((node: any) => 
           node.CreatedNode?.LedgerEntryType === 'NFToken' ||
@@ -156,9 +165,13 @@ export class EventClassifierService {
     return false;
   }
 
-  private calculateConfidence(transactionMessage: any): number {
-    const tx = transactionMessage.transaction || transactionMessage;
-    const meta = transactionMessage.meta || transactionMessage.metaData;
+  private calculateConfidence(transactionMessage: XRPLTransactionStreamMessage | unknown): number {
+    const txData = isTransactionStreamMessage(transactionMessage) 
+      ? transactionMessage 
+      : (transactionMessage as any);
+    
+    const tx = txData?.transaction || txData;
+    const meta = txData?.meta || txData?.metaData;
     
     let confidence = 0;
     let factors = 0;
@@ -187,24 +200,28 @@ export class EventClassifierService {
     factors += 0.25;
 
     // Factor 3: Transaction result success (20% weight)
-    if (transactionMessage.engine_result === 'tesSUCCESS') {
+    if (txData?.engine_result === 'tesSUCCESS') {
       confidence += 0.2;
-    } else if (transactionMessage.engine_result?.startsWith('tes')) {
+    } else if (txData?.engine_result?.startsWith('tes')) {
       confidence += 0.1;
     }
     factors += 0.2;
 
     // Factor 4: Data consistency (15% weight)
-    const consistency = this.checkDataConsistency(transactionMessage);
+    const consistency = this.checkDataConsistency(txData);
     confidence += consistency * 0.15;
     factors += 0.15;
 
     return Math.min(confidence / factors, 1.0);
   }
 
-  private assessDataQuality(transactionMessage: any, isNFTRelated: boolean): DataQualityScore {
-    const tx = transactionMessage.transaction || transactionMessage;
-    // const meta = transactionMessage.meta || transactionMessage.metaData; // Available if needed
+  private assessDataQuality(transactionMessage: XRPLTransactionStreamMessage | unknown, isNFTRelated: boolean): DataQualityScore {
+    const txData = isTransactionStreamMessage(transactionMessage) 
+      ? transactionMessage 
+      : (transactionMessage as any);
+    
+    const tx = txData?.transaction || txData;
+    // const meta = txData?.meta || txData?.metaData; // Available if needed
     
     let completeness = 0;
     let validity = 0;
@@ -217,7 +234,7 @@ export class EventClassifierService {
     const allRequired = [...requiredFields, ...nftRequiredFields];
     
     const presentFields = allRequired.filter(field => 
-      tx[field] !== undefined || transactionMessage[field] !== undefined
+      tx?.[field] !== undefined || txData?.[field] !== undefined
     );
     completeness = presentFields.length / allRequired.length;
     
@@ -251,7 +268,7 @@ export class EventClassifierService {
     }
 
     // Check ledger index
-    const ledgerIndex = transactionMessage.ledger_index;
+    const ledgerIndex = txData?.ledger_index;
     if (ledgerIndex !== undefined) {
       totalChecked++;
       if (Number.isInteger(ledgerIndex) && ledgerIndex > 0) {
@@ -264,7 +281,7 @@ export class EventClassifierService {
     validity = totalChecked > 0 ? validFields / totalChecked : 1;
 
     // Consistency check
-    consistency = this.checkDataConsistency(transactionMessage);
+    consistency = this.checkDataConsistency(txData);
     
     const overall = (completeness + validity + consistency) / 3;
 
@@ -277,14 +294,18 @@ export class EventClassifierService {
     };
   }
 
-  private checkDataConsistency(transactionMessage: any): number {
-    const tx = transactionMessage.transaction || transactionMessage;
-    const meta = transactionMessage.meta || transactionMessage.metaData;
+  private checkDataConsistency(transactionMessage: XRPLTransactionStreamMessage | unknown): number {
+    const txData = isTransactionStreamMessage(transactionMessage) 
+      ? transactionMessage 
+      : (transactionMessage as any);
+    
+    const tx = txData?.transaction || txData;
+    const meta = txData?.meta || txData?.metaData;
     
     let consistencyScore = 1.0;
 
     // Check if transaction result matches metadata
-    if (transactionMessage.engine_result === 'tesSUCCESS' && meta) {
+    if (txData?.engine_result === 'tesSUCCESS' && meta) {
       // Successful transactions should have affected nodes
       if (!meta.AffectedNodes || meta.AffectedNodes.length === 0) {
         consistencyScore -= 0.3;
@@ -292,8 +313,8 @@ export class EventClassifierService {
     }
 
     // Check timestamp consistency
-    const txDate = tx.date || tx.Date;
-    const ledgerIndex = transactionMessage.ledger_index;
+    const txDate = tx?.date || tx?.Date;
+    const ledgerIndex = txData?.ledger_index;
     if (txDate && ledgerIndex) {
       // Basic sanity check: newer ledgers should have newer timestamps
       // This is a simplified check - in reality, you'd need historical ledger data
@@ -303,7 +324,7 @@ export class EventClassifierService {
     }
 
     // Check NFT-specific consistency
-    if (tx.TransactionType === 'NFTokenMint' && meta?.AffectedNodes) {
+    if (tx?.TransactionType === 'NFTokenMint' && meta?.AffectedNodes) {
       const hasNFTCreation = meta.AffectedNodes.some((node: any) =>
         node.CreatedNode?.LedgerEntryType === 'NFToken'
       );
@@ -315,22 +336,26 @@ export class EventClassifierService {
     return Math.max(consistencyScore, 0);
   }
 
-  private extractClassificationMetadata(transactionMessage: any): {
+  private extractClassificationMetadata(transactionMessage: XRPLTransactionStreamMessage | unknown): {
     transactionType: string;
     primaryIndicators: string[];
     secondaryIndicators: string[];
     anomalies: string[];
   } {
-    const tx = transactionMessage.transaction || transactionMessage;
-    const meta = transactionMessage.meta || transactionMessage.metaData;
+    const txData = isTransactionStreamMessage(transactionMessage) 
+      ? transactionMessage 
+      : (transactionMessage as any);
+    
+    const tx = txData?.transaction || txData;
+    const meta = txData?.meta || txData?.metaData;
 
     const primaryIndicators: string[] = [];
     const secondaryIndicators: string[] = [];
     const anomalies: string[] = [];
 
     // Primary indicators
-    if (NFT_TRANSACTION_TYPES.includes(tx.TransactionType as NFTTransactionType)) {
-      primaryIndicators.push(`transaction_type:${tx.TransactionType}`);
+    if (NFT_TRANSACTION_TYPES.includes(tx?.TransactionType as NFTTransactionType)) {
+      primaryIndicators.push(`transaction_type:${tx?.TransactionType}`);
     }
 
     if (meta?.AffectedNodes) {
@@ -346,20 +371,20 @@ export class EventClassifierService {
     }
 
     // Secondary indicators
-    if (tx.Fee) {
+    if (tx?.Fee) {
       secondaryIndicators.push(`fee:${tx.Fee}`);
     }
 
-    if (tx.Flags) {
+    if (tx?.Flags) {
       secondaryIndicators.push(`flags:${tx.Flags}`);
     }
 
     // Anomalies
-    if (transactionMessage.engine_result !== 'tesSUCCESS') {
-      anomalies.push(`failed_transaction:${transactionMessage.engine_result}`);
+    if (txData?.engine_result !== 'tesSUCCESS') {
+      anomalies.push(`failed_transaction:${txData?.engine_result}`);
     }
 
-    if (tx.TransactionType === 'Payment' && !meta?.AffectedNodes?.some((node: any) =>
+    if (tx?.TransactionType === 'Payment' && !meta?.AffectedNodes?.some((node: any) =>
       node.CreatedNode?.LedgerEntryType === 'NFToken' ||
       node.ModifiedNode?.LedgerEntryType === 'NFToken'
     )) {
@@ -367,7 +392,7 @@ export class EventClassifierService {
     }
 
     return {
-      transactionType: tx.TransactionType,
+      transactionType: tx?.TransactionType || 'unknown',
       primaryIndicators,
       secondaryIndicators,
       anomalies,
