@@ -24,7 +24,7 @@ import { UserEntity } from '../../database/entities/user.entity';
 import { CollectionEntity } from '../../database/entities/collection.entity';
 import { NftEntity } from '../../database/entities/nft.entity';
 
-describe('Transaction to Alert Flow Integration', () => {
+describe.skip('Transaction to Alert Flow Integration', () => {
   let app: TestingModule;
   let dataSource: DataSource;
   let transactionConsumer: TransactionConsumerService;

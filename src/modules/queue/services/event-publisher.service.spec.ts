@@ -4,6 +4,7 @@ import { RabbitMQConnectionService } from './rabbitmq-connection.service';
 import { LoggerService } from '../../../core/logger/logger.service';
 import { QUEUE_CONSTANTS } from '../constants/queue.constants';
 import { EventType } from '../interfaces/queue.interface';
+import { TestDataFactory } from '../../../test/utils/test-data-factory';
 
 describe('EventPublisherService', () => {
   let service: EventPublisherService;
@@ -79,12 +80,14 @@ describe('EventPublisherService', () => {
 
   describe('publishTransactionEvent', () => {
     it('should publish transaction event to correct exchange and routing key', async () => {
+      // Use TestDataFactory to create a valid XRPL transaction
+      const xrplTransaction = TestDataFactory.createNFTMintTransaction();
       const transactionData = {
-        transaction: { Account: 'rTest123' },
-        meta: { TransactionResult: 'tesSUCCESS' },
-        ledgerIndex: 1000,
-        ledgerHash: 'ABC123',
-        validated: true,
+        transaction: xrplTransaction.transaction,
+        meta: xrplTransaction.meta,
+        ledgerIndex: xrplTransaction.ledger_index,
+        ledgerHash: xrplTransaction.ledger_hash,
+        validated: xrplTransaction.validated,
       };
 
       await service.publishTransactionEvent(transactionData);

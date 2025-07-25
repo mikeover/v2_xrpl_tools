@@ -2,6 +2,7 @@ import { Test, TestingModule } from '@nestjs/testing';
 import { ConfigService } from '@nestjs/config';
 import { XRPLConnectionManagerService } from './xrpl-connection-manager.service';
 import { LoggerService } from '../../../core/logger/logger.service';
+import { EventPublisherService } from '../../queue/services/event-publisher.service';
 import { XRPL_CONSTANTS } from '../constants/xrpl.constants';
 
 describe('XRPLConnectionManagerService', () => {
@@ -34,6 +35,13 @@ describe('XRPLConnectionManagerService', () => {
     }),
   };
 
+  const mockEventPublisher = {
+    publishConnectionEvent: jest.fn(),
+    publishLedgerEvent: jest.fn(),
+    publishTransactionEvent: jest.fn(),
+    publishNFTEvent: jest.fn(),
+  };
+
   beforeEach(async () => {
     const module: TestingModule = await Test.createTestingModule({
       providers: [
@@ -45,6 +53,10 @@ describe('XRPLConnectionManagerService', () => {
         {
           provide: ConfigService,
           useValue: mockConfigService,
+        },
+        {
+          provide: EventPublisherService,
+          useValue: mockEventPublisher,
         },
       ],
     }).compile();
@@ -197,6 +209,7 @@ describe('XRPLConnectionManagerService', () => {
         {
           get: jest.fn().mockReturnValue(null),
         } as any,
+        mockEventPublisher as any,
       );
 
       expect(serviceWithNoConfig).toBeDefined();

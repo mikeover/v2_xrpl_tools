@@ -247,7 +247,7 @@ describe('AlertMatchingService', () => {
     });
 
     it('should not match when alert expects collection but activity has none', () => {
-      baseActivity.nft!.collectionId = undefined;
+      delete baseActivity.nft!.collectionId;
 
       const result = service['evaluateAlertMatch'](baseAlert, baseActivity);
 
@@ -342,7 +342,7 @@ describe('AlertMatchingService', () => {
 
     it('should not match when alert has price filters but activity has no price', () => {
       baseAlert.minPriceDrops = '500000000';
-      baseActivity.priceDrops = undefined;
+      delete baseActivity.priceDrops;
 
       const result = service['evaluateAlertMatch'](baseAlert, baseActivity);
 
@@ -569,11 +569,11 @@ describe('AlertMatchingService', () => {
       expect(result).toBe('Blue');
     });
 
-    it('should return null for non-existent trait', () => {
+    it('should return undefined for non-existent trait', () => {
       const traits = { color: 'Blue' };
 
       const result = service['findTraitValue'](traits, 'rarity');
-      expect(result).toBeNull();
+      expect(result).toBeUndefined();
     });
 
     it('should handle different trait key formats in arrays', () => {
@@ -683,8 +683,10 @@ describe('AlertMatchingService', () => {
         },
       };
 
-      const complexAlert: AlertConfigEntity = {
+      const complexAlert = {
         id: 'complex-alert',
+        userId: 'user123',
+        name: 'Complex Alert',
         activityTypes: ['sale'],
         collectionId: 'premium-collection',
         minPriceDrops: '1000000000', // 1000 XRP
@@ -701,7 +703,13 @@ describe('AlertMatchingService', () => {
             value: '90',
           },
         ] as TraitFilter[],
+        notificationChannels: [],
         isActive: true,
+        createdAt: new Date(),
+        updatedAt: new Date(),
+        user: {} as any,
+        collection: null,
+        notifications: [],
       } as AlertConfigEntity;
 
       mockAlertConfigRepository.findAlertsMatchingActivity.mockResolvedValue([complexAlert]);
@@ -709,8 +717,8 @@ describe('AlertMatchingService', () => {
       const results = await service.findMatchingAlerts(complexActivity);
 
       expect(results).toHaveLength(1);
-      expect(results[0].matched).toBe(true);
-      expect(results[0].reasons).toEqual([
+      expect(results[0]?.matched).toBe(true);
+      expect(results[0]?.reasons).toEqual([
         'Activity type matches: sale',
         'Collection matches: premium-collection',
         'Price is above minimum: 1500000000 >= 1000000000',
@@ -735,18 +743,29 @@ describe('AlertMatchingService', () => {
         },
       };
 
-      const alert: AlertConfigEntity = {
+      const alert = {
         id: 'alert-1',
+        userId: 'user123',
+        name: 'Mint Alert',
         activityTypes: ['mint'],
+        collectionId: null,
+        minPriceDrops: null,
+        maxPriceDrops: null,
         traitFilters: [], // Empty array
+        notificationChannels: [],
         isActive: true,
+        createdAt: new Date(),
+        updatedAt: new Date(),
+        user: {} as any,
+        collection: null,
+        notifications: [],
       } as AlertConfigEntity;
 
       mockAlertConfigRepository.findAlertsMatchingActivity.mockResolvedValue([alert]);
 
       const results = await service.findMatchingAlerts(activity);
 
-      expect(results[0].matched).toBe(true);
+      expect(results[0]?.matched).toBe(true);
     });
   });
 

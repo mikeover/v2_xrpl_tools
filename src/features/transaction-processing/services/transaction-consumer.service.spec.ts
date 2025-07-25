@@ -1,34 +1,28 @@
 import { Test, TestingModule } from '@nestjs/testing';
 import { TransactionConsumerService } from './transaction-consumer.service';
-import { NFTTransactionParserService } from './nft-transaction-parser.service';
-import { LoggerService } from '../../../core/logger/logger.service';
 import { EventConsumerService } from '../../../modules/queue/services/event-consumer.service';
-import { EventPublisherService } from '../../../modules/queue/services/event-publisher.service';
-import { TestDataFactory } from '../../../test/utils/test-data-factory';
-import { XRPLTransactionStreamMessage } from '../../../shared/types/xrpl-stream.types';
-import { QueueEvent } from '../../../modules/queue/interfaces/queue.interface';
-import * as amqplib from 'amqplib';
+import { TransactionIngestionService } from './transaction-ingestion.service';
+import { LoggerService } from '../../../core/logger/logger.service';
 
 describe('TransactionConsumerService', () => {
   let service: TransactionConsumerService;
-  let mockNftParser: jest.Mocked<NFTTransactionParserService>;
   let mockEventConsumer: jest.Mocked<EventConsumerService>;
-  let mockEventPublisher: jest.Mocked<EventPublisherService>;
+  let mockTransactionIngestion: jest.Mocked<TransactionIngestionService>;
   let mockLogger: jest.Mocked<LoggerService>;
 
   beforeEach(async () => {
-    mockNftParser = {
-      parseTransaction: jest.fn(),
-      isNFTTransaction: jest.fn(),
-    } as any;
-
     mockEventConsumer = {
       consumeTransactionEvents: jest.fn(),
+      consumeNFTEvents: jest.fn(),
       consumeLedgerEvents: jest.fn(),
     } as any;
 
-    mockEventPublisher = {
-      publishNFTEvent: jest.fn(),
+    mockTransactionIngestion = {
+      processRawTransaction: jest.fn(),
+      startIngestion: jest.fn(),
+      stopIngestion: jest.fn(),
+      forceProcessBatch: jest.fn(),
+      reprocessFailedTransactions: jest.fn(),
     } as any;
 
     mockLogger = {
@@ -42,16 +36,12 @@ describe('TransactionConsumerService', () => {
       providers: [
         TransactionConsumerService,
         {
-          provide: NFTTransactionParserService,
-          useValue: mockNftParser,
-        },
-        {
           provide: EventConsumerService,
           useValue: mockEventConsumer,
         },
         {
-          provide: EventPublisherService,
-          useValue: mockEventPublisher,
+          provide: TransactionIngestionService,
+          useValue: mockTransactionIngestion,
         },
         {
           provide: LoggerService,
@@ -72,10 +62,18 @@ describe('TransactionConsumerService', () => {
   });
 
   describe('onModuleInit', () => {
-    it('should start consuming both transaction and ledger events', async () => {
+    it('should start all queue consumers successfully', async () => {
+      mockEventConsumer.consumeTransactionEvents.mockResolvedValue({ consumerTag: 'consumer-tag' } as any);
+      mockEventConsumer.consumeNFTEvents.mockResolvedValue({ consumerTag: 'consumer-tag' } as any);
+      mockEventConsumer.consumeLedgerEvents.mockResolvedValue({ consumerTag: 'consumer-tag' } as any);
+
       await service.onModuleInit();
 
       expect(mockEventConsumer.consumeTransactionEvents).toHaveBeenCalledWith(
+        expect.any(Function),
+        { noAck: false }
+      );
+      expect(mockEventConsumer.consumeNFTEvents).toHaveBeenCalledWith(
         expect.any(Function),
         { noAck: false }
       );
@@ -83,228 +81,106 @@ describe('TransactionConsumerService', () => {
         expect.any(Function),
         { noAck: false }
       );
-      expect(mockLogger.log).toHaveBeenCalledWith(
-        'TransactionConsumerService started - consuming transaction and ledger events'
-      );
+      expect(mockLogger.log).toHaveBeenCalledWith('Starting transaction queue consumers');
+      expect(mockLogger.log).toHaveBeenCalledWith('Transaction queue consumers started successfully');
     });
 
     it('should handle consumer initialization errors', async () => {
-      const error = new Error('Consumer initialization failed');
+      const error = new Error('Consumer setup failed');
       mockEventConsumer.consumeTransactionEvents.mockRejectedValue(error);
 
-      await expect(service.onModuleInit()).rejects.toThrow('Consumer initialization failed');
+      await expect(service.onModuleInit()).rejects.toThrow('Consumer setup failed');
       expect(mockLogger.error).toHaveBeenCalledWith(
-        'Failed to start TransactionConsumerService',
-        error.stack
+        'Failed to start transaction queue consumers',
+        'Consumer setup failed'
+      );
+    });
+
+    it('should handle different types of errors during initialization', async () => {
+      const errorString = 'String error';
+      mockEventConsumer.consumeNFTEvents.mockRejectedValue(errorString);
+
+      await expect(service.onModuleInit()).rejects.toBe(errorString);
+      expect(mockLogger.error).toHaveBeenCalledWith(
+        'Failed to start transaction queue consumers',
+        'String error'
+      );
+    });
+
+    it('should log appropriate messages during initialization', async () => {
+      mockEventConsumer.consumeTransactionEvents.mockResolvedValue({ consumerTag: 'consumer-tag' } as any);
+      mockEventConsumer.consumeNFTEvents.mockResolvedValue({ consumerTag: 'consumer-tag' } as any);
+      mockEventConsumer.consumeLedgerEvents.mockResolvedValue({ consumerTag: 'consumer-tag' } as any);
+
+      await service.onModuleInit();
+
+      expect(mockLogger.log).toHaveBeenCalledTimes(2);
+      expect(mockLogger.log).toHaveBeenNthCalledWith(1, 'Starting transaction queue consumers');
+      expect(mockLogger.log).toHaveBeenNthCalledWith(2, 'Transaction queue consumers started successfully');
+    });
+  });
+
+  describe('service integration', () => {
+    it('should have all required dependencies injected', () => {
+      expect(service).toBeDefined();
+      expect(service['eventConsumer']).toBeDefined();
+      expect(service['transactionIngestion']).toBeDefined();
+      expect(service['logger']).toBeDefined();
+    });
+
+    it('should implement OnModuleInit interface', () => {
+      expect(typeof service.onModuleInit).toBe('function');
+    });
+
+    it('should call consumer setup methods with correct parameters', async () => {
+      mockEventConsumer.consumeTransactionEvents.mockResolvedValue({ consumerTag: 'consumer-tag' } as any);
+      mockEventConsumer.consumeNFTEvents.mockResolvedValue({ consumerTag: 'consumer-tag' } as any);
+      mockEventConsumer.consumeLedgerEvents.mockResolvedValue({ consumerTag: 'consumer-tag' } as any);
+
+      await service.onModuleInit();
+
+      // Verify that handlers are bound functions
+      const transactionHandler = mockEventConsumer.consumeTransactionEvents.mock.calls[0]?.[0];
+      const nftHandler = mockEventConsumer.consumeNFTEvents.mock.calls[0]?.[0];
+      const ledgerHandler = mockEventConsumer.consumeLedgerEvents.mock.calls[0]?.[0];
+
+      expect(typeof transactionHandler).toBe('function');
+      expect(typeof nftHandler).toBe('function');
+      expect(typeof ledgerHandler).toBe('function');
+
+      // Verify options
+      expect(mockEventConsumer.consumeTransactionEvents).toHaveBeenCalledWith(
+        expect.any(Function),
+        { noAck: false }
+      );
+      expect(mockEventConsumer.consumeNFTEvents).toHaveBeenCalledWith(
+        expect.any(Function),
+        { noAck: false }
+      );
+      expect(mockEventConsumer.consumeLedgerEvents).toHaveBeenCalledWith(
+        expect.any(Function),
+        { noAck: false }
       );
     });
   });
 
-  describe('handleTransactionEvent', () => {
-    let mockMessage: amqplib.ConsumeMessage;
-    let transactionEvent: QueueEvent;
+  describe('error handling', () => {
+    it('should properly propagate errors from consumer setup', async () => {
+      const testError = new Error('Test error for propagation');
+      mockEventConsumer.consumeLedgerEvents.mockRejectedValue(testError);
 
-    beforeEach(() => {
-      mockMessage = {
-        fields: { deliveryTag: 1 },
-        properties: {},
-      } as amqplib.ConsumeMessage;
-
-      const streamMessage = TestDataFactory.createNFTMintTransaction();
-      transactionEvent = {
-        eventId: 'test-event-1',
-        eventType: 'transaction.validated' as any,
-        timestamp: new Date(),
-        data: streamMessage,
-      };
+      await expect(service.onModuleInit()).rejects.toThrow('Test error for propagation');
     });
 
-    it('should process NFT transactions and publish events', async () => {
-      const nftData = TestDataFactory.createNFTTransactionData();
-      mockNftParser.isNFTTransaction.mockReturnValue(true);
-      mockNftParser.parseTransaction.mockResolvedValue(nftData);
+    it('should handle consumer service failures gracefully', async () => {
+      const error = new Error('Consumer service down');
+      mockEventConsumer.consumeLedgerEvents.mockRejectedValue(error);
 
-      await service['handleTransactionEvent'](transactionEvent, mockMessage);
-
-      expect(mockNftParser.isNFTTransaction).toHaveBeenCalledWith(
-        transactionEvent.data.transaction
-      );
-      expect(mockNftParser.parseTransaction).toHaveBeenCalledWith(transactionEvent.data);
-      expect(mockEventPublisher.publishNFTEvent).toHaveBeenCalledWith(
-        'nft.activity',
-        nftData
-      );
-      expect(mockLogger.debug).toHaveBeenCalledWith(
-        `Processed NFT transaction: ${transactionEvent.data.transaction.hash}`
-      );
-    });
-
-    it('should skip non-NFT transactions', async () => {
-      mockNftParser.isNFTTransaction.mockReturnValue(false);
-
-      await service['handleTransactionEvent'](transactionEvent, mockMessage);
-
-      expect(mockNftParser.isNFTTransaction).toHaveBeenCalledWith(
-        transactionEvent.data.transaction
-      );
-      expect(mockNftParser.parseTransaction).not.toHaveBeenCalled();
-      expect(mockEventPublisher.publishNFTEvent).not.toHaveBeenCalled();
-      expect(mockLogger.debug).toHaveBeenCalledWith(
-        `Skipping non-NFT transaction: ${transactionEvent.data.transaction.hash}`
-      );
-    });
-
-    it('should handle NFT parsing errors gracefully', async () => {
-      const error = new Error('Parsing failed');
-      mockNftParser.isNFTTransaction.mockReturnValue(true);
-      mockNftParser.parseTransaction.mockRejectedValue(error);
-
-      await service['handleTransactionEvent'](transactionEvent, mockMessage);
-
+      await expect(service.onModuleInit()).rejects.toThrow('Consumer service down');
       expect(mockLogger.error).toHaveBeenCalledWith(
-        `Error processing transaction ${transactionEvent.data.transaction.hash}:`,
-        error.stack
+        'Failed to start transaction queue consumers',
+        'Consumer service down'
       );
-      expect(mockEventPublisher.publishNFTEvent).not.toHaveBeenCalled();
-    });
-
-    it('should handle invalid transaction data', async () => {
-      const invalidEvent = {
-        ...transactionEvent,
-        data: { transaction: null, meta: null } as any,
-      };
-
-      await service['handleTransactionEvent'](invalidEvent, mockMessage);
-
-      expect(mockLogger.error).toHaveBeenCalledWith(
-        'Invalid transaction data received:',
-        expect.any(String)
-      );
-      expect(mockNftParser.isNFTTransaction).not.toHaveBeenCalled();
-    });
-  });
-
-  describe('handleLedgerEvent', () => {
-    let mockMessage: amqplib.ConsumeMessage;
-    let ledgerEvent: QueueEvent;
-
-    beforeEach(() => {
-      mockMessage = {
-        fields: { deliveryTag: 1 },
-        properties: {},
-      } as amqplib.ConsumeMessage;
-
-      ledgerEvent = {
-        eventId: 'ledger-event-1',
-        eventType: 'ledger.closed' as any,
-        timestamp: new Date(),
-        data: {
-          ledgerIndex: 75000000,
-          ledgerHash: 'ABC123DEF456',
-          ledgerTime: Math.floor(Date.now() / 1000),
-          txnCount: 42,
-          validatedLedgerIndex: 74999999,
-        },
-      };
-    });
-
-    it('should process ledger close events', async () => {
-      await service['handleLedgerEvent'](ledgerEvent, mockMessage);
-
-      expect(mockLogger.debug).toHaveBeenCalledWith(
-        `Processed ledger close: ${ledgerEvent.data.ledgerIndex} with ${ledgerEvent.data.txnCount} transactions`
-      );
-    });
-
-    it('should handle ledger processing errors', async () => {
-      const invalidLedgerEvent = {
-        ...ledgerEvent,
-        data: null,
-      };
-
-      await service['handleLedgerEvent'](invalidLedgerEvent, mockMessage);
-
-      expect(mockLogger.error).toHaveBeenCalledWith(
-        'Error processing ledger event:',
-        expect.any(String)
-      );
-    });
-
-    it('should log ledger statistics correctly', async () => {
-      const highTxnLedger = {
-        ...ledgerEvent,
-        data: {
-          ...ledgerEvent.data,
-          txnCount: 1500,
-        },
-      };
-
-      await service['handleLedgerEvent'](highTxnLedger, mockMessage);
-
-      expect(mockLogger.debug).toHaveBeenCalledWith(
-        `Processed ledger close: ${highTxnLedger.data.ledgerIndex} with ${highTxnLedger.data.txnCount} transactions`
-      );
-    });
-  });
-
-  describe('error scenarios', () => {
-    it('should handle missing event data gracefully', async () => {
-      const invalidEvent = {} as QueueEvent;
-      const mockMessage = {} as amqplib.ConsumeMessage;
-
-      await service['handleTransactionEvent'](invalidEvent, mockMessage);
-
-      expect(mockLogger.error).toHaveBeenCalledWith(
-        'Invalid transaction data received:',
-        expect.any(String)
-      );
-    });
-
-    it('should handle consumer service failures during initialization', async () => {
-      mockEventConsumer.consumeTransactionEvents.mockRejectedValue(
-        new Error('RabbitMQ connection failed')
-      );
-
-      await expect(service.onModuleInit()).rejects.toThrow('RabbitMQ connection failed');
-      expect(mockLogger.error).toHaveBeenCalledWith(
-        'Failed to start TransactionConsumerService',
-        expect.any(String)
-      );
-    });
-  });
-
-  describe('integration scenarios', () => {
-    it('should handle multiple transaction types in sequence', async () => {
-      const mockMessage = { fields: { deliveryTag: 1 } } as amqplib.ConsumeMessage;
-      
-      // NFT Mint Transaction
-      const mintTransaction = TestDataFactory.createNFTMintTransaction();
-      const mintEvent = {
-        eventId: 'mint-1',
-        eventType: 'transaction.validated' as any,
-        timestamp: new Date(),
-        data: mintTransaction,
-      };
-
-      // NFT Sale Transaction
-      const saleTransaction = TestDataFactory.createNFTSaleTransaction();
-      const saleEvent = {
-        eventId: 'sale-1',
-        eventType: 'transaction.validated' as any,
-        timestamp: new Date(),
-        data: saleTransaction,
-      };
-
-      mockNftParser.isNFTTransaction.mockReturnValue(true);
-      mockNftParser.parseTransaction
-        .mockResolvedValueOnce(TestDataFactory.createNFTTransactionData({ activityType: 'mint' as any }))
-        .mockResolvedValueOnce(TestDataFactory.createNFTTransactionData({ activityType: 'sale' as any }));
-
-      await service['handleTransactionEvent'](mintEvent, mockMessage);
-      await service['handleTransactionEvent'](saleEvent, mockMessage);
-
-      expect(mockNftParser.parseTransaction).toHaveBeenCalledTimes(2);
-      expect(mockEventPublisher.publishNFTEvent).toHaveBeenCalledTimes(2);
     });
   });
 });
