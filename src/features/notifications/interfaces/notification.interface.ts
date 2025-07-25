@@ -59,6 +59,7 @@ export interface NFTActivityNotificationData {
     ownerAddress: string;
     metadata?: any;
     imageUrl?: string;
+    imageS3Url?: string;
     collection?: {
       id: string;
       name?: string;

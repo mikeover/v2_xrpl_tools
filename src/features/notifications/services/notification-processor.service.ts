@@ -198,6 +198,9 @@ export class NotificationProcessorService {
       if (activity.nft.imageUrl) {
         activityData.nft.imageUrl = activity.nft.imageUrl;
       }
+      if (activity.nft.imageS3Url) {
+        activityData.nft.imageS3Url = activity.nft.imageS3Url;
+      }
 
       // Include collection data if available
       if (activity.nft.collection) {

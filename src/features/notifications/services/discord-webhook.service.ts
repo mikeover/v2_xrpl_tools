@@ -94,10 +94,11 @@ export class DiscordWebhookService {
       },
     };
 
-    // Add NFT image if available
-    if (data.nft?.imageUrl) {
+    // Add NFT image if available (prefer S3 URL for better performance)
+    const imageUrl = data.nft?.imageS3Url || data.nft?.imageUrl;
+    if (imageUrl) {
       embed.thumbnail = {
-        url: data.nft.imageUrl,
+        url: imageUrl,
       };
     }
 

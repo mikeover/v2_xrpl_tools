@@ -204,9 +204,9 @@ export class EmailNotificationService {
             </div>
         </div>
         
-        ${data.nft?.imageUrl ? `
+        ${(data.nft?.imageS3Url || data.nft?.imageUrl) ? `
         <div class="nft-image">
-            <img src="${data.nft.imageUrl}" alt="NFT Image" />
+            <img src="${data.nft.imageS3Url || data.nft.imageUrl}" alt="NFT Image" />
         </div>
         ` : ''}
         

@@ -15,17 +15,59 @@ import {
   HttpStatus,
   ParseUUIDPipe,
 } from '@nestjs/common';
+import {
+  ApiTags,
+  ApiOperation,
+  ApiResponse,
+  ApiBody,
+  ApiBearerAuth,
+  ApiParam,
+  ApiQuery,
+  ApiUnauthorizedResponse,
+  ApiBadRequestResponse,
+  ApiNotFoundResponse,
+  ApiForbiddenResponse,
+} from '@nestjs/swagger';
 import { AlertConfigService } from '../services/alert-config.service';
 import { JwtAuthGuard } from '../../auth/guards/jwt-auth.guard';
 import { CurrentUser } from '../../auth/decorators/current-user.decorator';
 import { AuthenticatedUser } from '../../auth/interfaces/auth.interface';
 import { CreateAlertConfigDto, UpdateAlertConfigDto, AlertConfigQueryDto } from '../dto/alert.dto';
 
+@ApiTags('Alerts')
+@ApiBearerAuth('JWT-auth')
 @Controller('alerts')
 @UseGuards(JwtAuthGuard)
 export class AlertConfigController {
   constructor(private readonly alertConfigService: AlertConfigService) {}
 
+  @ApiOperation({
+    summary: 'Create a new alert configuration',
+    description: 'Create a new NFT activity alert with custom filters and notification channels',
+  })
+  @ApiBody({ type: CreateAlertConfigDto })
+  @ApiResponse({
+    status: 201,
+    description: 'Alert configuration created successfully',
+    schema: {
+      type: 'object',
+      properties: {
+        message: { type: 'string', example: 'Alert configuration created successfully' },
+        alert: {
+          type: 'object',
+          properties: {
+            id: { type: 'string', format: 'uuid' },
+            name: { type: 'string' },
+            activityTypes: { type: 'array', items: { type: 'string' } },
+            isActive: { type: 'boolean' },
+            createdAt: { type: 'string', format: 'date-time' },
+          },
+        },
+      },
+    },
+  })
+  @ApiBadRequestResponse({ description: 'Invalid alert configuration data' })
+  @ApiUnauthorizedResponse({ description: 'JWT token is missing or invalid' })
   @Post()
   @UsePipes(new ValidationPipe({ transform: true, whitelist: true }))
   async createAlert(
@@ -40,6 +82,46 @@ export class AlertConfigController {
     };
   }
 
+  @ApiOperation({
+    summary: 'Get user\'s alert configurations',
+    description: 'Retrieve all alert configurations for the authenticated user with optional filtering',
+  })
+  @ApiQuery({ name: 'isActive', required: false, type: Boolean, description: 'Filter by active status' })
+  @ApiQuery({ name: 'collectionId', required: false, type: String, description: 'Filter by collection ID' })
+  @ApiQuery({ name: 'page', required: false, type: Number, description: 'Page number for pagination' })
+  @ApiQuery({ name: 'limit', required: false, type: Number, description: 'Items per page (max 100)' })
+  @ApiResponse({
+    status: 200,
+    description: 'Alert configurations retrieved successfully',
+    schema: {
+      type: 'object',
+      properties: {
+        message: { type: 'string', example: 'Alert configurations retrieved successfully' },
+        data: {
+          type: 'array',
+          items: {
+            type: 'object',
+            properties: {
+              id: { type: 'string', format: 'uuid' },
+              name: { type: 'string' },
+              activityTypes: { type: 'array', items: { type: 'string' } },
+              isActive: { type: 'boolean' },
+            },
+          },
+        },
+        pagination: {
+          type: 'object',
+          properties: {
+            page: { type: 'number' },
+            limit: { type: 'number' },
+            total: { type: 'number' },
+            totalPages: { type: 'number' },
+          },
+        },
+      },
+    },
+  })
+  @ApiUnauthorizedResponse({ description: 'JWT token is missing or invalid' })
   @Get()
   async getAlerts(
     @CurrentUser() user: AuthenticatedUser,
@@ -136,6 +218,18 @@ export class AlertConfigController {
     };
   }
 
+  @ApiOperation({
+    summary: 'Delete an alert configuration',
+    description: 'Permanently delete an alert configuration. This action cannot be undone.',
+  })
+  @ApiParam({ name: 'id', type: 'string', format: 'uuid', description: 'Alert configuration ID' })
+  @ApiResponse({
+    status: 204,
+    description: 'Alert configuration deleted successfully',
+  })
+  @ApiNotFoundResponse({ description: 'Alert configuration not found' })
+  @ApiForbiddenResponse({ description: 'Access denied to this alert configuration' })
+  @ApiUnauthorizedResponse({ description: 'JWT token is missing or invalid' })
   @Delete(':id')
   @HttpCode(HttpStatus.NO_CONTENT)
   async deleteAlert(
