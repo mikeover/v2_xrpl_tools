@@ -7,15 +7,21 @@ import {
   NFT_TRANSACTION_TYPES,
 } from '../interfaces/transaction.interface';
 import { TRANSACTION_ERRORS } from '../constants/transaction.constants';
+import { 
+  XRPLTransactionStreamMessage,
+  Transaction,
+  TransactionMetadata,
+  isTransactionStreamMessage
+} from '../../../shared/types/xrpl-stream.types';
 
 @Injectable()
 export class NFTTransactionParserService {
   constructor(private readonly logger: LoggerService) {}
 
-  isNFTTransaction(transaction: any): boolean {
+  isNFTTransaction(transaction: Transaction | unknown): boolean {
     // Handle both direct transaction objects and wrapped ones
-    const tx = transaction.tx_json || transaction;
-    const txType = tx.TransactionType || tx.transaction_type;
+    const tx = (transaction as any)?.tx_json || transaction;
+    const txType = (tx as any)?.TransactionType || (tx as any)?.transaction_type;
     const isNFT = NFT_TRANSACTION_TYPES.includes(txType as NFTTransactionType);
     
     // Debug logging for NFT detection
@@ -26,31 +32,36 @@ export class NFTTransactionParserService {
     return isNFT;
   }
 
-  parseNFTTransaction(transactionMessage: any): NFTTransactionData | null {
+  parseNFTTransaction(transactionMessage: XRPLTransactionStreamMessage | unknown): NFTTransactionData | null {
     try {
-      const rawTx = transactionMessage.transaction || transactionMessage;
-      const tx = rawTx.tx_json || rawTx; // The actual transaction data is in tx_json
-      const meta = transactionMessage.meta || rawTx.meta || transactionMessage.metaData;
+      // Type-safe data extraction
+      const txData = isTransactionStreamMessage(transactionMessage) 
+        ? transactionMessage 
+        : (transactionMessage as any);
+      
+      const rawTx = txData?.transaction || txData;
+      const tx = (rawTx as any)?.tx_json || rawTx; // The actual transaction data is in tx_json
+      const meta = txData?.meta || (rawTx as any)?.meta || txData?.metaData;
 
       if (!this.isNFTTransaction(tx)) {
         return null;
       }
 
       const baseData: Partial<NFTTransactionData> = {
-        transactionHash: rawTx.hash || tx.hash || tx.Hash || rawTx.Hash,
-        ledgerIndex: transactionMessage.ledger_index || rawTx.ledger_index || tx.ledger_index,
-        timestamp: this.parseTimestamp(tx.date || tx.Date || rawTx.close_time_iso),
-        fromAddress: tx.Account,
+        transactionHash: (rawTx as any)?.hash || (tx as any)?.hash || (tx as any)?.Hash || (rawTx as any)?.Hash,
+        ledgerIndex: txData?.ledger_index || (rawTx as any)?.ledger_index || (tx as any)?.ledger_index,
+        timestamp: this.parseTimestamp((tx as any)?.date || (tx as any)?.Date || (rawTx as any)?.close_time_iso),
+        fromAddress: (tx as any)?.Account,
         metadata: {
-          transactionType: tx.TransactionType,
-          fee: tx.Fee,
-          flags: tx.Flags,
-          engineResult: rawTx.engine_result || transactionMessage.engine_result,
+          transactionType: (tx as any)?.TransactionType,
+          fee: (tx as any)?.Fee,
+          flags: (tx as any)?.Flags,
+          engineResult: (rawTx as any)?.engine_result || txData?.engine_result,
         },
       };
 
       // Parse specific NFT transaction types
-      switch (tx.TransactionType) {
+      switch ((tx as any)?.TransactionType) {
         case 'NFTokenMint':
           return this.parseNFTokenMint(tx, meta, baseData);
 
@@ -70,7 +81,7 @@ export class NFTTransactionParserService {
           return this.parseNFTPayment(tx, meta, baseData);
 
         default:
-          this.logger.warn(`Unhandled NFT transaction type: ${tx.TransactionType}`);
+          this.logger.warn(`Unhandled NFT transaction type: ${(tx as any)?.TransactionType}`);
           return null;
       }
     } catch (error) {
@@ -82,77 +93,77 @@ export class NFTTransactionParserService {
   }
 
   private parseNFTokenMint(
-    tx: any,
-    meta: any,
+    tx: Transaction | unknown,
+    meta: TransactionMetadata | unknown,
     baseData: Partial<NFTTransactionData>,
   ): NFTTransactionData {
     const nftTokenID = this.extractNFTTokenIDFromMeta(meta, tx);
 
     // Decode URI from hex if present
-    const uriHex = tx.URI;
+    const uriHex = (tx as any)?.URI;
     const uriDecoded = uriHex ? this.decodeHexString(uriHex) : null;
 
     return {
       ...baseData,
       activityType: NFTActivityType.MINT,
       nftTokenID,
-      toAddress: tx.Account, // Minter becomes initial owner
+      toAddress: (tx as any)?.Account, // Minter becomes initial owner
       metadata: {
         ...baseData.metadata,
-        taxon: tx.NFTokenTaxon,
-        transferFee: tx.TransferFee,
+        taxon: (tx as any)?.NFTokenTaxon,
+        transferFee: (tx as any)?.TransferFee,
         uri: uriDecoded,
         uriHex: uriHex,
-        minter: tx.Account,
+        minter: (tx as any)?.Account,
       },
     } as NFTTransactionData;
   }
 
   private parseNFTokenBurn(
-    tx: any,
-    _meta: any,
+    tx: Transaction | unknown,
+    _meta: TransactionMetadata | unknown,
     baseData: Partial<NFTTransactionData>,
   ): NFTTransactionData {
     return {
       ...baseData,
       activityType: NFTActivityType.BURN,
-      nftTokenID: tx.NFTokenID,
+      nftTokenID: (tx as any)?.NFTokenID,
       metadata: {
         ...baseData.metadata,
-        burner: tx.Account,
-        owner: tx.Owner,
+        burner: (tx as any)?.Account,
+        owner: (tx as any)?.Owner,
       },
     } as NFTTransactionData;
   }
 
   private parseNFTokenCreateOffer(
-    tx: any,
-    _meta: any,
+    tx: Transaction | unknown,
+    _meta: TransactionMetadata | unknown,
     baseData: Partial<NFTTransactionData>,
   ): NFTTransactionData {
-    const amount = this.parseAmount(tx.Amount);
+    const amount = this.parseAmount((tx as any)?.Amount);
 
     return {
       ...baseData,
       activityType: NFTActivityType.OFFER_CREATED,
-      nftTokenID: tx.NFTokenID,
+      nftTokenID: (tx as any)?.NFTokenID,
       priceDrops: amount.value,
       currency: amount.currency,
       issuer: amount.issuer,
-      toAddress: tx.Destination,
+      toAddress: (tx as any)?.Destination,
       metadata: {
         ...baseData.metadata,
-        owner: tx.Owner,
-        destination: tx.Destination,
-        expiration: tx.Expiration,
-        flags: tx.Flags,
+        owner: (tx as any)?.Owner,
+        destination: (tx as any)?.Destination,
+        expiration: (tx as any)?.Expiration,
+        flags: (tx as any)?.Flags,
       },
     } as NFTTransactionData;
   }
 
   private parseNFTokenAcceptOffer(
-    tx: any,
-    meta: any,
+    tx: Transaction | unknown,
+    meta: TransactionMetadata | unknown,
     baseData: Partial<NFTTransactionData>,
   ): NFTTransactionData {
     // Extract offer details from metadata
@@ -169,17 +180,17 @@ export class NFTTransactionParserService {
       toAddress: offerDetails.buyer,
       metadata: {
         ...baseData.metadata,
-        buyOfferID: tx.NFTokenBuyOffer,
-        sellOfferID: tx.NFTokenSellOffer,
-        broker: tx.Account,
-        brokerFee: tx.BrokerFee,
+        buyOfferID: (tx as any)?.NFTokenBuyOffer,
+        sellOfferID: (tx as any)?.NFTokenSellOffer,
+        broker: (tx as any)?.Account,
+        brokerFee: (tx as any)?.BrokerFee,
       },
     } as NFTTransactionData;
   }
 
   private parseNFTokenCancelOffer(
-    tx: any,
-    _meta: any,
+    tx: Transaction | unknown,
+    _meta: TransactionMetadata | unknown,
     baseData: Partial<NFTTransactionData>,
   ): NFTTransactionData {
     return {
@@ -187,14 +198,14 @@ export class NFTTransactionParserService {
       activityType: NFTActivityType.OFFER_CANCELLED,
       metadata: {
         ...baseData.metadata,
-        cancelledOffers: tx.NFTokenOffers,
+        cancelledOffers: (tx as any)?.NFTokenOffers,
       },
     } as NFTTransactionData;
   }
 
   private parseNFTPayment(
-    tx: any,
-    meta: any,
+    tx: Transaction | unknown,
+    meta: TransactionMetadata | unknown,
     baseData: Partial<NFTTransactionData>,
   ): NFTTransactionData | null {
     // Check if this payment involves NFT transfer
@@ -203,22 +214,22 @@ export class NFTTransactionParserService {
       return null; // Not an NFT payment
     }
 
-    const amount = this.parseAmount(tx.Amount);
+    const amount = this.parseAmount((tx as any)?.Amount);
 
     return {
       ...baseData,
       activityType: NFTActivityType.SALE,
       nftTokenID,
-      toAddress: tx.Destination,
+      toAddress: (tx as any)?.Destination,
       priceDrops: amount.value,
       currency: amount.currency,
       issuer: amount.issuer,
       metadata: {
         ...baseData.metadata,
-        destination: tx.Destination,
-        destinationTag: tx.DestinationTag,
-        sourceTag: tx.SourceTag,
-        memos: tx.Memos,
+        destination: (tx as any)?.Destination,
+        destinationTag: (tx as any)?.DestinationTag,
+        sourceTag: (tx as any)?.SourceTag,
+        memos: (tx as any)?.Memos,
       },
     } as NFTTransactionData;
   }
@@ -233,19 +244,19 @@ export class NFTTransactionParserService {
     return new Date(date);
   }
 
-  private parseAmount(amount: any): { value: string; currency: string; issuer?: string } {
+  private parseAmount(amount: unknown): { value: string; currency: string; issuer?: string } {
     if (typeof amount === 'string') {
       // XRP amount in drops
       return {
         value: amount,
         currency: 'XRP',
       };
-    } else if (typeof amount === 'object' && amount.value) {
+    } else if (typeof amount === 'object' && amount && (amount as any).value) {
       // IOU amount
       return {
-        value: amount.value,
-        currency: amount.currency,
-        issuer: amount.issuer,
+        value: (amount as any).value,
+        currency: (amount as any).currency,
+        issuer: (amount as any).issuer,
       };
     }
 
@@ -255,19 +266,19 @@ export class NFTTransactionParserService {
     };
   }
 
-  private extractNFTTokenIDFromMeta(meta: any, tx?: any): string | undefined {
+  private extractNFTTokenIDFromMeta(meta: TransactionMetadata | unknown, tx?: Transaction | unknown): string | undefined {
     // First check if CLIO provided the NFT ID directly
-    if (meta?.nftoken_id) {
-      this.logger.debug(`Found NFT Token ID from CLIO: ${meta.nftoken_id}`);
-      return meta.nftoken_id;
+    if ((meta as any)?.nftoken_id) {
+      this.logger.debug(`Found NFT Token ID from CLIO: ${(meta as any).nftoken_id}`);
+      return (meta as any).nftoken_id;
     }
 
-    if (!meta || !meta.AffectedNodes) {
+    if (!meta || !(meta as any).AffectedNodes) {
       return undefined;
     }
 
     // Look for NFTokenPage modifications (where NFTs are actually stored)
-    for (const node of meta.AffectedNodes) {
+    for (const node of (meta as any).AffectedNodes) {
       // Check for NFTokenPage modifications
       if (node.ModifiedNode?.LedgerEntryType === 'NFTokenPage') {
         const previousTokens = node.ModifiedNode.PreviousFields?.NFTokens || [];
@@ -317,23 +328,23 @@ export class NFTTransactionParserService {
     }
 
     // Fallback: For NFTokenBurn transactions, the NFT ID is in the transaction itself
-    if (tx?.TransactionType === 'NFTokenBurn' && tx.NFTokenID) {
-      return tx.NFTokenID;
+    if ((tx as any)?.TransactionType === 'NFTokenBurn' && (tx as any)?.NFTokenID) {
+      return (tx as any).NFTokenID;
     }
 
     return undefined;
   }
 
   private extractOfferDetailsFromMeta(
-    meta: any,
-    tx: any,
+    meta: TransactionMetadata | unknown,
+    tx: Transaction | unknown,
   ): {
     nftTokenID?: string | undefined;
     amount?: { value: string; currency: string; issuer?: string } | undefined;
     seller?: string | undefined;
     buyer?: string | undefined;
   } {
-    if (!meta || !meta.AffectedNodes) {
+    if (!meta || !(meta as any).AffectedNodes) {
       return {};
     }
 
@@ -343,7 +354,7 @@ export class NFTTransactionParserService {
     let buyer: string | undefined;
 
     // Extract details from affected nodes
-    for (const node of meta.AffectedNodes) {
+    for (const node of (meta as any).AffectedNodes) {
       if (node.DeletedNode?.LedgerEntryType === 'NFTokenOffer') {
         const offer = node.DeletedNode.FinalFields;
         nftTokenID = offer.NFTokenID;
@@ -352,11 +363,11 @@ export class NFTTransactionParserService {
         if (offer.Flags & 1) {
           // Sell offer
           seller = offer.Owner;
-          buyer = tx.Account;
+          buyer = (tx as any)?.Account;
         } else {
           // Buy offer
           buyer = offer.Owner;
-          seller = tx.Account;
+          seller = (tx as any)?.Account;
         }
       }
     }
