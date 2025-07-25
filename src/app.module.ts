@@ -1,4 +1,6 @@
 import { Module } from '@nestjs/common';
+import { ConfigModule, ConfigService } from '@nestjs/config';
+import { ThrottlerModule } from '@nestjs/throttler';
 import { AppController } from './app.controller';
 import { AppService } from './app.service';
 import { CoreModule } from './core/core.module';
@@ -9,11 +11,26 @@ import { TransactionProcessingModule } from './features/transaction-processing/t
 import { UserManagementModule } from './features/user-management/user-management.module';
 import { AlertsModule } from './features/alerts/alerts.module';
 import { NotificationsModule } from './features/notifications/notifications.module';
+import { AppConfiguration } from './shared/config';
 
 @Module({
   imports: [
     CoreModule,
     SharedModule,
+    ThrottlerModule.forRootAsync({
+      imports: [ConfigModule],
+      inject: [ConfigService],
+      useFactory: (configService: ConfigService<AppConfiguration>) => {
+        const security = configService.get<AppConfiguration['security']>('security');
+        return [
+          {
+            name: 'default',
+            ttl: security?.throttler?.ttl || 60000,
+            limit: security?.throttler?.limit || 100,
+          },
+        ];
+      },
+    }),
     QueueModule,
     XRPLConnectionModule,
     TransactionProcessingModule,

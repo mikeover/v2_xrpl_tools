@@ -44,6 +44,12 @@ export interface AppConfiguration {
   };
   security: {
     bcryptSaltRounds?: number;
+    throttler?: {
+      ttl: number;
+      limit: number;
+      authTtl?: number;
+      authLimit?: number;
+    };
   };
   discord: {
     webhookUrl?: string | undefined;
@@ -127,6 +133,12 @@ export const configuration = (): AppConfiguration => {
       ...(process.env['BCRYPT_SALT_ROUNDS'] && { 
         bcryptSaltRounds: parseInt(process.env['BCRYPT_SALT_ROUNDS'], 10)
       }),
+      throttler: {
+        ttl: parseInt(process.env['THROTTLE_TTL'] || '60000', 10), // 1 minute
+        limit: parseInt(process.env['THROTTLE_LIMIT'] || '100', 10), // 100 requests per minute
+        authTtl: parseInt(process.env['AUTH_THROTTLE_TTL'] || '60000', 10), // 1 minute
+        authLimit: parseInt(process.env['AUTH_THROTTLE_LIMIT'] || '5', 10), // 5 auth requests per minute
+      },
     },
     discord: {
       webhookUrl: process.env['DISCORD_WEBHOOK_URL'],

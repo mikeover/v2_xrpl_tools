@@ -11,6 +11,18 @@ import {
   Patch,
   UseGuards,
 } from '@nestjs/common';
+import { Throttle, ThrottlerGuard } from '@nestjs/throttler';
+import {
+  ApiTags,
+  ApiOperation,
+  ApiResponse,
+  ApiBody,
+  ApiBearerAuth,
+  ApiUnauthorizedResponse,
+  ApiBadRequestResponse,
+  ApiConflictResponse,
+  ApiTooManyRequestsResponse,
+} from '@nestjs/swagger';
 import { UserService } from '../../users/services/user.service';
 import { JwtAuthService } from '../services/jwt.service';
 import { LoginDto, RegisterDto, RefreshTokenDto, ChangePasswordDto, UpdateProfileDto } from '../dto/auth.dto';
@@ -21,6 +33,7 @@ import { CurrentUser } from '../decorators/current-user.decorator';
 import { JwtAuthGuard } from '../guards/jwt-auth.guard';
 import { AuthenticatedUser } from '../interfaces/auth.interface';
 
+@ApiTags('Authentication')
 @Controller('auth')
 @UseGuards(JwtAuthGuard)
 export class AuthController {
@@ -30,7 +43,45 @@ export class AuthController {
     private readonly logger: LoggerService,
   ) {}
 
+  @ApiOperation({
+    summary: 'Register a new user',
+    description: 'Creates a new user account and automatically logs them in',
+  })
+  @ApiBody({ type: RegisterDto })
+  @ApiResponse({
+    status: 201,
+    description: 'User successfully registered and logged in',
+    schema: {
+      type: 'object',
+      properties: {
+        message: { type: 'string', example: 'Registration successful' },
+        user: {
+          type: 'object',
+          properties: {
+            id: { type: 'string', format: 'uuid' },
+            email: { type: 'string', format: 'email' },
+            firstName: { type: 'string' },
+            lastName: { type: 'string' },
+            role: { type: 'string', example: 'user' },
+          },
+        },
+        tokens: {
+          type: 'object',
+          properties: {
+            accessToken: { type: 'string' },
+            refreshToken: { type: 'string' },
+            expiresIn: { type: 'string', example: '7d' },
+          },
+        },
+      },
+    },
+  })
+  @ApiBadRequestResponse({ description: 'Invalid input data or password requirements not met' })
+  @ApiConflictResponse({ description: 'User with this email already exists' })
+  @ApiTooManyRequestsResponse({ description: 'Too many registration attempts. Please try again later.' })
   @Public()
+  @UseGuards(ThrottlerGuard)
+  @Throttle({ default: { limit: 5, ttl: 60000 } }) // 5 requests per minute for auth endpoints
   @Post('register')
   @UsePipes(new ValidationPipe({ transform: true, whitelist: true }))
   async register(@Body() registerDto: RegisterDto) {
@@ -63,7 +114,42 @@ export class AuthController {
     };
   }
 
+  @ApiOperation({
+    summary: 'User login',
+    description: 'Authenticate user and return access/refresh tokens',
+  })
+  @ApiBody({ type: LoginDto })
+  @ApiResponse({
+    status: 200,
+    description: 'User successfully authenticated',
+    schema: {
+      type: 'object',
+      properties: {
+        message: { type: 'string', example: 'Login successful' },
+        user: {
+          type: 'object',
+          properties: {
+            id: { type: 'string', format: 'uuid' },
+            email: { type: 'string', format: 'email' },
+            role: { type: 'string', example: 'user' },
+          },
+        },
+        tokens: {
+          type: 'object',
+          properties: {
+            accessToken: { type: 'string' },
+            refreshToken: { type: 'string' },
+            expiresIn: { type: 'string', example: '7d' },
+          },
+        },
+      },
+    },
+  })
+  @ApiUnauthorizedResponse({ description: 'Invalid email or password' })
+  @ApiTooManyRequestsResponse({ description: 'Too many login attempts. Please try again later.' })
   @Public()
+  @UseGuards(ThrottlerGuard)
+  @Throttle({ default: { limit: 5, ttl: 60000 } }) // 5 requests per minute for auth endpoints
   @Post('login')
   @HttpCode(HttpStatus.OK)
   @UsePipes(new ValidationPipe({ transform: true, whitelist: true }))
@@ -78,6 +164,8 @@ export class AuthController {
   }
 
   @Public()
+  @UseGuards(ThrottlerGuard)
+  @Throttle({ default: { limit: 10, ttl: 60000 } }) // 10 requests per minute for refresh tokens
   @Post('refresh')
   @HttpCode(HttpStatus.OK)
   @UsePipes(new ValidationPipe({ transform: true, whitelist: true }))
@@ -105,6 +193,36 @@ export class AuthController {
     };
   }
 
+  @ApiOperation({
+    summary: 'Get user profile',
+    description: 'Retrieve the authenticated user\'s profile information',
+  })
+  @ApiResponse({
+    status: 200,
+    description: 'User profile retrieved successfully',
+    schema: {
+      type: 'object',
+      properties: {
+        message: { type: 'string', example: 'Profile retrieved successfully' },
+        user: {
+          type: 'object',
+          properties: {
+            id: { type: 'string', format: 'uuid' },
+            email: { type: 'string', format: 'email' },
+            firstName: { type: 'string' },
+            lastName: { type: 'string' },
+            isActive: { type: 'boolean' },
+            emailVerified: { type: 'boolean' },
+            lastLoginAt: { type: 'string', format: 'date-time' },
+            createdAt: { type: 'string', format: 'date-time' },
+            updatedAt: { type: 'string', format: 'date-time' },
+          },
+        },
+      },
+    },
+  })
+  @ApiBearerAuth('JWT-auth')
+  @ApiUnauthorizedResponse({ description: 'JWT token is missing or invalid' })
   @Get('profile')
   async getProfile(@CurrentUser() user: AuthenticatedUser) {
     const userProfile = await this.userService.findById(user.id);
@@ -132,6 +250,8 @@ export class AuthController {
     };
   }
 
+  @UseGuards(ThrottlerGuard)
+  @Throttle({ default: { limit: 3, ttl: 60000 } }) // 3 requests per minute for password changes
   @Post('change-password')
   @HttpCode(HttpStatus.OK)
   @UsePipes(new ValidationPipe({ transform: true, whitelist: true }))
